@@ -43,33 +43,33 @@ export default function DealsPage() {
   return (
     <div className=" h-full w-full flex flex-col overflow-hidden">
       <Navbar />
-      <main className=" gap-4  py-[2vh] flex flex-1 flex-col px-[15vh] justify-center text-black">
-        <div className="grid grid-cols-6 gap-4">
+      <main className=" gap-4  py-[2vh] flex flex-1 overflow-auto flex-col px-[15vh] justify-center text-black">
+        <div className="grid grid-cols-6 gap-4 h-full">
           <motion.img
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             className="rounded-xl col-span-4 h-full shadow-md shadow-black/40"
             src="/images/flashsale.png"
           />
-          <div className="col-start-5 gap-4 flex flex-col col-span-2">
+          <div className="col-start-5 gap-4 flex h-full flex-col col-span-2">
             <motion.img
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.1 }}
-              className="rounded-xl shadow-md shadow-black/40"
+              className="rounded-xl shadow-md h-full shadow-black/40"
               src="/images/freeshipping.png"
             />
             <motion.img
               initial={{ y: 20, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ delay: 0.2 }}
-              className="rounded-xl shadow-md shadow-black/40"
+              className="rounded-xl shadow-md h-full shadow-black/40"
               src="/images/mysterygift.png"
             />
           </div>
         </div>
 
-        <div className="flex flex-col h-full">
+        <div className="flex flex-col">
           <div className="flex justify-between">
             <div>Today's Deals</div>
             <div className="flex font-medium cursor-pointer gap-2 items-center text-sm">
@@ -90,7 +90,7 @@ export default function DealsPage() {
               </svg>
             </div>
           </div>
-          <div className="grid grid-cols-4 gap-4 w-full h-full">
+          <div className="grid grid-cols-4 gap-4 w-full">
             {deals.map((item, index) => (
               <motion.div
                 onHoverStart={() => setIsHovered(item.title)}

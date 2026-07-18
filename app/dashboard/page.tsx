@@ -58,7 +58,7 @@ export default function page() {
           animate={{ y: 0, opacity: 1 }}
           className="rounded-md h-60 sm:h-auto w-full relative overflow-hidden flex"
         >
-          <div className="absolute text-white xl:gap-4 justify-center h-full flex flex-col px-4 xl:px-40 py-4 z-20">
+          <div className="absolute text-white xl:gap-4 justify-center h-full flex flex-col px-4 lg:px-40 py-4 z-20">
             <div className="drop-shadow-md  text-shadow-md text-shadow-black/60 shadow-black">
               Featured Pokémon Collection
             </div>
@@ -101,7 +101,7 @@ export default function page() {
           </div>
         </motion.div>
 
-        <div className="w-full hidden py-4 md:grid border-b border-black/10 grid-cols-1 xl:grid-cols-5 gap-4 content-center items-center justify-center text-black">
+        <div className="w-full hidden py-4 lg:grid border-b border-black/10 grid-cols-1 md:grid-cols-5 gap-4 content-center items-center justify-center text-black">
           <motion.div
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
@@ -259,7 +259,7 @@ export default function page() {
               </svg>
             </div>
           </div>
-          <div className="grid grid-cols-2 xl:grid-cols-6 mt-4 relative gap-2 w-full h-full">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 mt-4 relative gap-2 w-full h-full">
             {cards.map((item, index) => (
               <motion.div
                 onHoverStart={() => setHoverCard(item.id)}
