@@ -38,8 +38,8 @@ export default function Navbar() {
   return (
     <div className="flex flex-col">
       <div className="grid grid-cols-3 bg-[#99AD7A] text-black px-[6vh] py-[2vh]">
-        <Link href="/dashboard" className="text-white -top-4 left-6 absolute text-2xl">
-          <img src="/images/logo.png" className="w-40" />
+        <Link href="/dashboard" className="text-white top-2 md:-top-1 left-2 sm:left-6 absolute text-2xl">
+          <img src="/images/logo.png" className="w-30 md:w-40" />
         </Link>
         <div></div>
 
@@ -64,7 +64,7 @@ export default function Navbar() {
           </svg>
         </div>
 
-        <div className="flex gap-4 justify-end items-center">
+        <div className="gap-4 hidden md:flex justify-end items-center">
           <div className="flex items-center cursor-pointer font-semibold text-xs gap-1 text-white">
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -104,7 +104,7 @@ export default function Navbar() {
           {status === "loading" ? (
             <div className="size-8 rounded-full bg-black/10 animate-pulse" />
           ) : user ? (
-            <div className="relative" ref={menuRef}>
+            <div className="relative " ref={menuRef}>
               <button
                 onClick={() => setMenuOpen((v) => !v)}
                 className="size-8 rounded-full bg-black text-white flex items-center justify-center text-sm font-semibold hover:opacity-90"

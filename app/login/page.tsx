@@ -57,7 +57,7 @@ export default function Page() {
         fill
         priority
         placeholder="blur"
-        className="object-cover z-10"
+        className="object-cover w-full h-full z-10"
         sizes="50vw"
       />
 
@@ -65,18 +65,18 @@ export default function Page() {
         initial={{ scale: 0.6, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
         transition={{ stiffness: 200, type: "spring" }}
-        className="absolute z-20 w-120"
+        className="absolute z-20 w-80 md:w-120"
       >
         <DotLottieReact
-          className="absolute flex -top-32.5 ml-20 w-80 z-10"
+          className="absolute flex -top-32.5 md:ml-20 w-80 z-10"
           src="assets/animation/LoginPikachu.json"
           loop
           autoplay
         />
-        <div className=" flex flex-col shadow-xl shadow-black/40 bg-white px-14 py-14 rounded-md gap-4 w-full z-20">
+        <div className=" flex flex-col shadow-xl shadow-black/40 bg-white px-8 md:px-14 py-10 md:py-14 rounded-md gap-4 w-full z-20">
           <div className="flex font-semibold justify-center w-full text-center items-center flex-col">
             <div className=" text-4xl uppercase">Login</div>
-            <div className="text-sm font-extralight text-slate-600">
+            <div className="text-[0.6rem] md:text-sm font-extralight text-slate-600">
               Welcome to KOSMOS! Please enter your details.
             </div>
           </div>
@@ -100,7 +100,7 @@ export default function Page() {
                 </svg>
 
                 <input
-                  className="outline-none w-full font-medium"
+                  className="outline-none text-xs md:text-base w-full font-medium"
                   type="email"
                   placeholder="Enter your email"
                   value={email}
@@ -129,7 +129,7 @@ export default function Page() {
                 </svg>
 
                 <input
-                  className="outline-none font-medium  w-full"
+                  className="outline-none text-xs md:text-base font-medium  w-full"
                   type="password"
                   placeholder="Enter your password"
                   value={password}
@@ -138,7 +138,7 @@ export default function Page() {
                 />
               </div>
               <div className="flex w-full mb-2 items-end justify-end">
-                <div className="text-xs underline cursor-pointer">
+                <div className="text-[0.5rem] md:text-xs underline cursor-pointer">
                   Forgot Password?
                 </div>
               </div>
@@ -155,9 +155,9 @@ export default function Page() {
                 {loading ? "Signing in..." : "Login"}
               </button>
 
-              <div className="text-sm text-center mt-3 text-slate-600">
+              <div className="text-xs md:text-sm text-center mt-3 text-slate-600">
                 Don&apos;t have an account?{" "}
-                <Link href="/register" className="underline text-black">
+                <Link href="/" className="underline text-black">
                   Sign up
                 </Link>
               </div>

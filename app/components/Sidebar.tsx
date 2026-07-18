@@ -200,7 +200,7 @@ export default function Sidebar({ onApply }: SidebarProps) {
   };
 
   return (
-    <div className="w-[35vh] flex-col gap-6 h-full overflow-hidden pl-6 pb-10 pt-6 flex">
+    <div className="w-[20vh] md:w-[35vh] flex-col gap-6 h-full overflow-hidden pl-6 pb-10 pt-6 flex">
       <div className="border-r border-gray-300 flex flex-col pr-4 h-full">
         <div>Search Filter</div>
 

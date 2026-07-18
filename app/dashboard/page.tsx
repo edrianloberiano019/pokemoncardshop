@@ -52,22 +52,22 @@ export default function page() {
   return (
     <div className="h-full w-full flex flex-col overflow-hidden">
       <Navbar />
-      <main className="flex-1 py-[2vh] flex flex-col px-[15vh] overflow-hidden">
+      <main className="flex-1 py-[2vh] flex flex-col px-[4vh] xl:px-[15vh] overflow-auto xl:overflow-hidden">
         <motion.div
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          className="rounded-md w-full relative overflow-hidden flex"
+          className="rounded-md h-60 sm:h-auto w-full relative overflow-hidden flex"
         >
-          <div className="absolute text-white gap-4 justify-center h-full flex flex-col px-40 py-4 z-20">
-            <div className="drop-shadow-md shadow-black">
+          <div className="absolute text-white xl:gap-4 justify-center h-full flex flex-col px-4 xl:px-40 py-4 z-20">
+            <div className="drop-shadow-md  text-shadow-md text-shadow-black/60 shadow-black">
               Featured Pokémon Collection
             </div>
-            <div className="text-6xl">
+            <div className="text-2xl text-shadow-md text-shadow-black/60 xl:text-6xl">
               <div>Power Up</div>
               <div>Your Collection</div>
             </div>
-            <div className="gap-2 flex flex-col">
-              <div>
+            <div className="gap-2 flex  text-shadow-md text-shadow-black/60 flex-col">
+              <div className=" text-xs" >
                 From iconic classics to the latest expansions, discover cards
                 every Trainer wants.
               </div>
@@ -101,7 +101,7 @@ export default function page() {
           </div>
         </motion.div>
 
-        <div className="w-full py-4 grid border-b border-black/10 grid-cols-5 gap-4 content-center items-center justify-center text-black">
+        <div className="w-full hidden py-4 md:grid border-b border-black/10 grid-cols-1 xl:grid-cols-5 gap-4 content-center items-center justify-center text-black">
           <motion.div
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
@@ -124,7 +124,7 @@ export default function page() {
             </svg>
 
             <div>
-              <div>Fast Delivery</div>
+              <div className="" >Fast Delivery</div>
               <div className="font-medium text-xs">On orders over $50</div>
             </div>
           </motion.div>
@@ -150,7 +150,7 @@ export default function page() {
             </svg>
 
             <div>
-              <div>Easy Return</div>
+              <div className="">Easy Return</div>
               <div className="font-medium text-xs">30 Days return policy</div>
             </div>
           </motion.div>
@@ -176,7 +176,7 @@ export default function page() {
             </svg>
 
             <div>
-              <div>24/7 Support</div>
+              <div className="">24/7 Support</div>
               <div className="font-medium text-xs">Always here to help</div>
             </div>
           </motion.div>
@@ -184,7 +184,7 @@ export default function page() {
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ delay: 0.4 }}
-            className="flex gap-2 items-center justify-center"
+            className="flex gap-2 w-full items-center justify-center"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -202,7 +202,7 @@ export default function page() {
             </svg>
 
             <div>
-              <div>Secure Payment</div>
+              <div className="">Secure Payment</div>
               <div className="font-medium text-xs">
                 Your data is safe with us
               </div>
@@ -231,14 +231,14 @@ export default function page() {
             </svg>
 
             <div>
-              <div>100% Authentic</div>
+              <div className="">100% Authentic</div>
               <div className="font-medium text-xs">
                 All cards are verified
               </div>
             </div>
           </motion.div>
         </div>
-        <div className="min-h-0 text-black flex flex-col py-4 rounded-md flex-1">
+        <div className="min-h-0 text-black flex pb-10 sm:pb-0 flex-col py-4 rounded-md flex-1">
           <div className="flex justify-between">
             <div>Featured Products</div>
             <div className="flex font-medium cursor-pointer gap-2 items-center text-sm">
@@ -259,7 +259,7 @@ export default function page() {
               </svg>
             </div>
           </div>
-          <div className="grid grid-cols-6 mt-4 relative gap-2 w-full flex-2/3 min-h-0">
+          <div className="grid grid-cols-2 xl:grid-cols-6 mt-4 relative gap-2 w-full h-full">
             {cards.map((item, index) => (
               <motion.div
                 onHoverStart={() => setHoverCard(item.id)}
@@ -269,7 +269,7 @@ export default function page() {
                 transition={{ delay: index * 0.1 }}
                 key={item.id}
               >
-                <div className="border w-full h-full overflow-hidden relative border-[#99AD7A] rounded-md flex flex-col">
+                <div className="border w-full h-50 xl:h-full overflow-hidden relative border-[#99AD7A] rounded-md flex flex-col">
                   <div className="w-full flex-1 min-h-0 flex relative">
                     <Image
                       src={item.images.small}

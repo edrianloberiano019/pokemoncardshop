@@ -40,9 +40,7 @@ export default function ShopPage() {
   const [filters, setFilters] = useState<SidebarFilters>(emptyFilters);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [selectedCard, setSelectedCard] = useState<PokemonDetails | null>(
-    null,
-  );
+  const [selectedCard, setSelectedCard] = useState<PokemonDetails | null>(null);
 
   useEffect(() => {
     setPage(1);
@@ -81,18 +79,21 @@ export default function ShopPage() {
   return (
     <div className="h-full w-full flex flex-col overflow-hidden">
       {selectedCard && (
-        <SelectedCard card={selectedCard} onClose={() => setSelectedCard(null)} />
+        <SelectedCard
+          card={selectedCard}
+          onClose={() => setSelectedCard(null)}
+        />
       )}
       <Navbar />
       <div className="flex flex-1 overflow-hidden">
         <Sidebar onApply={setFilters} />
-        <main className="flex-1 relative flex flex-col mb-4 text-black">
+        <main className="flex-1 relative w-full flex flex-col mb-4 text-black">
           {loading ? (
             <LoadingSkeleton />
           ) : (
             <>
               <div
-                className={` ${cards.length > 0 && "grid grid-cols-6 "}  place-content-start relative gap-4 h-full overflow-auto px-6 py-[2vh] `}
+                className={` ${cards.length > 0 && "grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-6 "}  place-content-start relative gap-4 h-full overflow-auto px-6 py-[2vh] w-full `}
               >
                 {cards.length > 0 ? (
                   cards.map((item, index) => (
@@ -140,7 +141,7 @@ export default function ShopPage() {
                   ))
                 ) : (
                   <div className="flex text-gray-400/80 items-center  justify-center w-full h-full">
-                      Error: Please reload this page again.
+                    Error: Please reload this page again.
                   </div>
                 )}
               </div>
