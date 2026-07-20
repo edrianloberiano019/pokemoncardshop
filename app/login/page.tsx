@@ -9,7 +9,12 @@ import { AnimatePresence, motion } from "framer-motion";
 import { collection, getDocs } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { ref, get, set } from "firebase/database";
-import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
+import {
+  getAuth,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+} from "firebase/auth";
+import { toast } from "react-toastify";
 
 const auth = getAuth();
 
@@ -60,6 +65,30 @@ export const registerUser = async ({
   }
 };
 
+export const loginUser = async ({
+  email,
+  password,
+}: {
+  email: string;
+  password: string;
+}) => {
+  try {
+    const credential = await signInWithEmailAndPassword(auth, email, password);
+    const user = credential.user;
+
+    return {
+      success: true,
+      user,
+    };
+  } catch (error: any) {
+    console.error(error);
+    return {
+      success: false,
+      message: error.message,
+    };
+  }
+};
+
 export default function Page() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -75,22 +104,116 @@ export default function Page() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if(password !== confirmPassword) {
-      console.log("not matched")
-      return
+    const trimmedFirstName = firstName.trim();
+    const trimmedLastName = lastName.trim();
+    const trimmedEmail = email.trim();
+    const trimmedContactNumber = contactNumber.trim();
+    const trimmedPassword = password.trim();
+    const trimmedConfirmPassword = confirmPassword.trim();
+
+    if (!trimmedFirstName || !trimmedLastName) {
+      const message = "Please enter your first and last name.";
+      setError(message);
+      toast.error(message);
+      return;
     }
+
+    const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailPattern.test(trimmedEmail)) {
+      const message = "Please enter a valid email address.";
+      setError(message);
+      toast.error(message);
+      return;
+    }
+
+    if (!trimmedContactNumber) {
+      const message = "Please enter a contact number.";
+      setError(message);
+      toast.error(message);
+      return;
+    }
+
+    if (trimmedPassword.length < 6) {
+      const message = "Password must be at least 6 characters long.";
+      setError(message);
+      toast.error(message);
+      return;
+    }
+
+    if (trimmedPassword !== trimmedConfirmPassword) {
+      const message = "Passwords do not match.";
+      setError(message);
+      toast.error(message);
+      return;
+    }
+
+    setError(null);
+    setLoading(true);
+
     const result = await registerUser({
-      firstName: firstName,
-      lastName: lastName,
-      email: email,
-      contactNumber: contactNumber,
-      password: confirmPassword,
+      firstName: trimmedFirstName,
+      lastName: trimmedLastName,
+      email: trimmedEmail,
+      contactNumber: trimmedContactNumber,
+      password: trimmedPassword,
     });
 
+    setLoading(false);
+
     if (result.success) {
-      console.log("Registered!");
+      toast.success("Account created successfully!");
+      setFirstName("");
+      setLastName("");
+      setEmail("");
+      setContactNumber("");
+      setPassword("");
+      setConfirmPassword("");
     } else {
-      console.log(result.message);
+      const message = result.message || "Unable to create account.";
+      setError(message);
+      toast.error(message);
+    }
+  };
+
+  const handleLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    const trimmedEmail = email.trim();
+    const trimmedPassword = password.trim();
+
+    if (!trimmedEmail) {
+      const message = "Please enter your email address.";
+      setError(message);
+      toast.error(message);
+      return;
+    }
+
+    if (!trimmedPassword) {
+      const message = "Please enter your password.";
+      setError(message);
+      toast.error(message);
+      return;
+    }
+
+    setError(null);
+    setLoading(true);
+
+    const result = await loginUser({
+      email: trimmedEmail,
+      password: trimmedPassword,
+    });
+
+    setLoading(false);
+
+    if (result.success) {
+      toast.success("Signed in successfully!");
+      setEmail("");
+      setPassword("");
+      router.push("/dashboard");
+    } else {
+      const message = result.message || "Unable to sign in.";
+      setError(message);
+      toast.error(message);
     }
   };
 
@@ -124,7 +247,7 @@ export default function Page() {
               </div>
 
               <form
-                onClick={handleRegister}
+                onSubmit={handleRegister}
                 className="gap-2 flex text-sm flex-col"
               >
                 <div className="flex flex-col md:flex-row gap-2">
@@ -148,7 +271,7 @@ export default function Page() {
 
                       <input
                         className="outline-none text-xs w-full font-medium"
-                        type="email"
+                        type="text"
                         placeholder="First name"
                         value={firstName}
                         onChange={(e) => setFirstName(e.target.value)}
@@ -177,7 +300,7 @@ export default function Page() {
 
                       <input
                         className="outline-none text-xs w-full font-medium"
-                        type="email"
+                        type="text"
                         placeholder="Last name"
                         value={lastName}
                         onChange={(e) => setLastName(e.target.value)}
@@ -236,7 +359,7 @@ export default function Page() {
 
                     <input
                       className="outline-none text-xs w-full font-medium"
-                      type="email"
+                      type="tel"
                       placeholder="Contact number"
                       value={contactNumber}
                       onChange={(e) => setContactNumber(e.target.value)}
@@ -265,7 +388,7 @@ export default function Page() {
 
                     <input
                       className="outline-none text-xs w-full font-medium"
-                      type="email"
+                      type="password"
                       placeholder="Password"
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
@@ -334,7 +457,7 @@ export default function Page() {
             >
               <div className=" text-4xl uppercase text-center mb-4">Login</div>
               <form
-                onClick={handleRegister}
+                onSubmit={handleLogin}
                 className="gap-4 mt-2 text-sm flex flex-col"
               >
                 <div className="flex gap-1 flex-col">
