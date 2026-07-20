@@ -424,11 +424,6 @@ export default function Page() {
                       required
                     />
                   </div>
-
-                  {error && (
-                    <div className="text-sm text-red-600 mb-2">{error}</div>
-                  )}
-
                   <button
                     type="submit"
                     disabled={loading}
@@ -484,7 +479,7 @@ export default function Page() {
                       placeholder="Enter your email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      // required
+                      required
                     />
                   </div>
                 </div>
@@ -515,7 +510,7 @@ export default function Page() {
                           placeholder="Enter your password"
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
-                          // required
+                          required
                         />
                       </div>
                       <div className="border border-gray-400 rounded-sm px-3 items-center flex cursor-pointer">
@@ -546,10 +541,6 @@ export default function Page() {
                       Forgot Password?
                     </div>
                   </div>
-
-                  {error && (
-                    <div className="text-sm text-red-600 mb-2">{error}</div>
-                  )}
 
                   <button
                     type="submit"
