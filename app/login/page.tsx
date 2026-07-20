@@ -1,53 +1,97 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { signIn, getSession } from "next-auth/react";
 import BackgroundImage from "../../public/images/loginBackground.png";
 import { AnimatePresence, motion } from "framer-motion";
-import { DotLottieReact } from "@lottiefiles/dotlottie-react";
+import { collection, getDocs } from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import { ref, get, set } from "firebase/database";
+import { getAuth, createUserWithEmailAndPassword } from "firebase/auth";
+
+const auth = getAuth();
+
+type RegisterUserParams = {
+  firstName: string;
+  lastName: string;
+  email: string;
+  contactNumber: string;
+  password: string;
+};
+
+export const registerUser = async ({
+  firstName,
+  lastName,
+  email,
+  contactNumber,
+  password,
+}: RegisterUserParams) => {
+  try {
+    const credential = await createUserWithEmailAndPassword(
+      auth,
+      email,
+      password,
+    );
+
+    const user = credential.user;
+
+    await set(ref(db, `users/${user.uid}`), {
+      uid: user.uid,
+      firstName,
+      lastName,
+      email,
+      contactNumber,
+      role: "customer",
+      createdAt: Date.now(),
+    });
+
+    return {
+      success: true,
+      user,
+    };
+  } catch (error: any) {
+    console.error(error);
+    return {
+      success: false,
+      message: error.message,
+    };
+  }
+};
 
 export default function Page() {
   const router = useRouter();
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [isRegistrating, setIsRegistrating] = useState(false);
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [contactNumber, setContactNumber] = useState("");
+  const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    router.push("/dashboard");
-    // setError(null);
-    // setLoading(true);
+    if(password !== confirmPassword) {
+      console.log("not matched")
+      return
+    }
+    const result = await registerUser({
+      firstName: firstName,
+      lastName: lastName,
+      email: email,
+      contactNumber: contactNumber,
+      password: confirmPassword,
+    });
 
-    // const res = await signIn("credentials", {
-    //   email,
-    //   password,
-    //   redirect: false,
-    // });
-
-    // setLoading(false);
-
-    // if (res?.error) {
-    //   setError("Invalid email or password.");
-    //   return;
-    // }
-
-    // const session = await getSession();
-    // const role = session?.user?.role;
-
-    // if (role === "ADMIN" || role === "SUPERADMIN") {
-    //   router.push("/admin/dashboard");
-    // } else if (role === "VENDOR") {
-    //   router.push("/vendor/dashboard");
-    // } else {
-    //   router.push("/dashboard");
-    // }
-    // router.refresh();
+    if (result.success) {
+      console.log("Registered!");
+    } else {
+      console.log(result.message);
+    }
   };
 
   return (
@@ -75,10 +119,12 @@ export default function Page() {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.8 }}
             >
-                <div className=" text-4xl w-full text-center mb-4 uppercase">Sign up</div>
-               
+              <div className=" text-4xl w-full text-center mb-4 uppercase">
+                Sign up
+              </div>
+
               <form
-                onSubmit={handleSubmit}
+                onClick={handleRegister}
                 className="gap-2 flex text-sm flex-col"
               >
                 <div className="flex flex-col md:flex-row gap-2">
@@ -104,9 +150,9 @@ export default function Page() {
                         className="outline-none text-xs w-full font-medium"
                         type="email"
                         placeholder="First name"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        // required
+                        value={firstName}
+                        onChange={(e) => setFirstName(e.target.value)}
+                        required
                       />
                     </div>
                   </div>
@@ -133,9 +179,9 @@ export default function Page() {
                         className="outline-none text-xs w-full font-medium"
                         type="email"
                         placeholder="Last name"
-                        value={email}
-                        onChange={(e) => setEmail(e.target.value)}
-                        // required
+                        value={lastName}
+                        onChange={(e) => setLastName(e.target.value)}
+                        required
                       />
                     </div>
                   </div>
@@ -165,7 +211,7 @@ export default function Page() {
                       placeholder="Email address"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      // required
+                      required
                     />
                   </div>
                 </div>
@@ -192,9 +238,9 @@ export default function Page() {
                       className="outline-none text-xs w-full font-medium"
                       type="email"
                       placeholder="Contact number"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      // required
+                      value={contactNumber}
+                      onChange={(e) => setContactNumber(e.target.value)}
+                      required
                     />
                   </div>
                 </div>
@@ -221,9 +267,9 @@ export default function Page() {
                       className="outline-none text-xs w-full font-medium"
                       type="email"
                       placeholder="Password"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      // required
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                      required
                     />
                   </div>
                 </div>
@@ -250,9 +296,9 @@ export default function Page() {
                       className="outline-none text-xs w-full font-medium"
                       type="password"
                       placeholder="Confirm your password"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      // required
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      required
                     />
                   </div>
 
@@ -286,8 +332,9 @@ export default function Page() {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.8 }}
             >
-                <div className=" text-4xl uppercase text-center mb-4">Login</div>
+              <div className=" text-4xl uppercase text-center mb-4">Login</div>
               <form
+                onClick={handleRegister}
                 className="gap-4 mt-2 text-sm flex flex-col"
               >
                 <div className="flex gap-1 flex-col">
@@ -348,12 +395,12 @@ export default function Page() {
                           // required
                         />
                       </div>
-                      <div className="border border-gray-400 rounded-sm px-3 items-center flex cursor-pointer" >
+                      <div className="border border-gray-400 rounded-sm px-3 items-center flex cursor-pointer">
                         <svg
                           xmlns="http://www.w3.org/2000/svg"
                           fill="none"
                           viewBox="0 0 24 24"
-                          stroke-width="1.5"
+                          strokeWidth="1.5"
                           stroke="currentColor"
                           className="size-6"
                         >
