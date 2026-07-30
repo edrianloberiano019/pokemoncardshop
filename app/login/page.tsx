@@ -208,9 +208,6 @@ export default function Page() {
     setLoading(false);
 
     if (result.success && result.user) {
-      setEmail("");
-      setPassword("");
-
       const idToken = await result.user.getIdToken();
       await syncSessionCookie(idToken);
 
@@ -220,6 +217,8 @@ export default function Page() {
       router.push(
         profile?.role === "vendor" ? "/vendor/dashboard" : "/dashboard",
       );
+      setEmail("");
+      setPassword("");
     } else {
       toast.error("Incorrect username or password.");
     }
@@ -267,7 +266,7 @@ export default function Page() {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.8 }}
             >
-              <div className=" text-4xl w-full text-center mb-4 uppercase">
+              <div className=" text-4xl w-full text-blue-950 font-black text-center mb-4 uppercase">
                 Sign up
               </div>
 
@@ -453,7 +452,7 @@ export default function Page() {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="bg-[#99AD7A] mt-2 hover:bg-[#86976b] text-white cursor-pointer py-2 rounded-sm w-full disabled:opacity-60"
+                    className="bg-blue-950 mt-2 text-white cursor-pointer py-2 rounded-sm w-full disabled:opacity-60"
                   >
                     {loading ? "Signing up..." : "Sign up"}
                   </button>
@@ -475,7 +474,9 @@ export default function Page() {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.8 }}
             >
-              <div className=" text-4xl uppercase font-black text-center text-blue-950 mb-4">Login</div>
+              <div className=" text-4xl uppercase font-black text-center text-blue-950 mb-4">
+                Login
+              </div>
               <form
                 onSubmit={handleLogin}
                 className="gap-4 mt-2 text-sm flex flex-col"
