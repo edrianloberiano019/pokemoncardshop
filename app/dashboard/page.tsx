@@ -45,9 +45,9 @@ export default function page() {
     console.log(cards);
   });
 
-  if (loading) {
-    return <Loading />;
-  }
+  // if (loading) {
+  //   return <Loading />;
+  // }
 
   return (
     <div className="h-full w-full flex flex-col overflow-hidden">

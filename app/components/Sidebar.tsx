@@ -237,7 +237,7 @@ export default function Sidebar({ onApply }: SidebarProps) {
         </div>
         <div
           onClick={handleApply}
-          className="bg-[#99AD7A] hover:bg-[#8a9c6d] transition-all text-white text-xs px-3 py-1.5 rounded-sm cursor-pointer mt-2 text-center"
+          className="bg-blue-950 transition-all text-white text-xs px-3 py-1.5 rounded-sm cursor-pointer mt-2 text-center"
         >
           Apply
         </div>

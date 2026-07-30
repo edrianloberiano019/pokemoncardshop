@@ -3,6 +3,7 @@
 import { useRef } from "react";
 import { Provider } from "react-redux";
 import { makeStore, type AppStore } from "./index";
+import AuthListener from "./AuthListener";
 
 export default function StoreProvider({
   children,
@@ -14,5 +15,10 @@ export default function StoreProvider({
     storeRef.current = makeStore();
   }
 
-  return <Provider store={storeRef.current}>{children}</Provider>;
+  return (
+    <Provider store={storeRef.current}>
+      <AuthListener />
+      {children}
+    </Provider>
+  );
 }

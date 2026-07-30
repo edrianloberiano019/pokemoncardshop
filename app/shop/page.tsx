@@ -41,6 +41,8 @@ export default function ShopPage() {
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [selectedCard, setSelectedCard] = useState<PokemonDetails | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [countdown, setCountdown] = useState(6);
 
   useEffect(() => {
     setPage(1);
@@ -74,7 +76,24 @@ export default function ShopPage() {
     };
 
     getCards();
-  }, [filters, page]);
+  }, [filters, page, reloadKey]);
+
+  useEffect(() => {
+    if (loading || cards.length > 0) return;
+
+    setCountdown(3);
+    const interval = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          setReloadKey((key) => key + 1);
+          return 3;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [loading, cards.length]);
 
   return (
     <div className="h-full w-full flex flex-col overflow-hidden">
@@ -140,8 +159,8 @@ export default function ShopPage() {
                     </motion.div>
                   ))
                 ) : (
-                  <div className="flex text-gray-400/80 items-center  justify-center w-full h-full">
-                    Error: Please reload this page again.
+                  <div className="flex text-red-300/80 items-center  justify-center w-full h-full">
+                    Error: Automatic load in just {countdown}..
                   </div>
                 )}
               </div>

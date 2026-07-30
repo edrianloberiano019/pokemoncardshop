@@ -1,60 +1,56 @@
 import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 
-export interface User {
+export interface Business {
   id: string;
-  name: string;
-  email: string;
+  userId: string;
+  businessName: string;
+  businessDescription: string;
+}
+
+export interface User {
+  uid: string;
+  email: string | null;
+  name: string | null;
+  role?: "customer" | "vendor";
+  business?: Business | null;
 }
 
 interface AuthState {
   user: User | null;
-  token: string | null;
-  status: "idle" | "loading" | "authenticated" | "error";
-  error: string | null;
+  loading: boolean;
 }
 
 const initialState: AuthState = {
   user: null,
-  token: null,
-  status: "idle",
-  error: null,
+  loading: true,
 };
 
 const authSlice = createSlice({
   name: "auth",
   initialState,
   reducers: {
-    loginStart(state) {
-      state.status = "loading";
-      state.error = null;
+    login(state, action: PayloadAction<User>) {
+      state.user = action.payload;
+      state.loading = false;
     },
-    loginSuccess(
-      state,
-      action: PayloadAction<{ user: User; token: string }>
-    ) {
-      state.user = action.payload.user;
-      state.token = action.payload.token;
-      state.status = "authenticated";
-      state.error = null;
-    },
-    loginFailure(state, action: PayloadAction<string>) {
-      state.status = "error";
-      state.error = action.payload;
-    },
+
     logout(state) {
       state.user = null;
-      state.token = null;
-      state.status = "idle";
-      state.error = null;
+      state.loading = false;
+    },
+
+    setLoading(state, action: PayloadAction<boolean>) {
+      state.loading = action.payload;
+    },
+
+    updateUser(state, action: PayloadAction<Partial<User>>) {
+      if (state.user) {
+        state.user = { ...state.user, ...action.payload };
+      }
     },
   },
 });
 
-export const { loginStart, loginSuccess, loginFailure, logout } =
-  authSlice.actions;
-
-export const selectUser = (state: { auth: AuthState }) => state.auth.user;
-export const selectIsAuthenticated = (state: { auth: AuthState }) =>
-  state.auth.status === "authenticated";
+export const { login, logout, setLoading, updateUser } = authSlice.actions;
 
 export default authSlice.reducer;

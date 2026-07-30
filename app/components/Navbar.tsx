@@ -3,7 +3,13 @@
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { useState, useRef, useEffect } from "react";
-import { useSession, signOut } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { signOut } from "firebase/auth";
+import { get, ref, update } from "firebase/database";
+import { auth, db } from "../lib/firebase";
+import { useAppDispatch, useAppSelector } from "../store/hooks";
+import { logout, updateUser, type Business } from "../store/slices/authSlice";
+import SellRegistration from "./SellRegistration";
 
 const navLinks = [
   { label: "Home", href: "/dashboard" },
@@ -13,10 +19,53 @@ const navLinks = [
   { label: "Contact", href: "/contact" },
 ];
 
+const vendorNavLinks = [
+  { label: "Dashboard", href: "/vendor/dashboard" },
+  { label: "Products", href: "/vendor/products" },
+  { label: "Sales", href: "/vendor/sales" },
+];
+
 export default function Navbar() {
-  const { data: session, status } = useSession();
+  const router = useRouter();
+  const dispatch = useAppDispatch();
+  const user = useAppSelector((state) => state.auth.user);
+  const loading = useAppSelector((state) => state.auth.loading);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [showSellModal, setShowSellModal] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const isVendor = user?.role === "vendor";
+  const links = isVendor ? vendorNavLinks : navLinks;
+
+  useEffect(() => {
+    if (!user?.uid) return;
+    const fetchProfile = async () => {
+      const [snapshot, businessSnapshot] = await Promise.all([
+        get(ref(db, `users/${user.uid}`)),
+        get(ref(db, "business")),
+      ]);
+      const profile = snapshot.val();
+
+      const businessData = businessSnapshot.val() as Record<
+        string,
+        Omit<Business, "id">
+      > | null;
+      const business = businessData
+        ? (Object.entries(businessData)
+            .map(([id, value]) => ({ id, ...value }))
+            .find((b) => b.userId === user.uid) ?? null)
+        : null;
+
+      if (profile) {
+        dispatch(
+          updateUser({
+            role: profile.role,
+            business,
+          }),
+        );
+      }
+    };
+    fetchProfile();
+  }, [user?.uid, dispatch]);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -29,17 +78,46 @@ export default function Navbar() {
     return () => document.removeEventListener("mousedown", handler);
   }, [menuOpen]);
 
-  const user = session?.user;
   const initial =
     user?.name?.trim()?.charAt(0).toUpperCase() ||
     user?.email?.charAt(0).toUpperCase() ||
     "U";
 
+  const handleLogout = async () => {
+    setMenuOpen(false);
+    await signOut(auth);
+    dispatch(logout());
+    router.push("/login");
+  };
+
+  const handleGoToHome = async () => {
+    setMenuOpen(false);
+    if (user) {
+      await update(ref(db, `users/${user.uid}`), { role: "customer" });
+      dispatch(updateUser({ role: "customer" }));
+    }
+    router.push("/dashboard");
+  };
+
+  const handleGoToShop = async () => {
+    setMenuOpen(false);
+    if (user) {
+      await update(ref(db, `users/${user.uid}`), { role: "vendor" });
+      dispatch(updateUser({ role: "vendor" }));
+    }
+    router.push("/vendor/dashboard");
+  };
+
   return (
     <div className="flex flex-col">
-      <div className="grid grid-cols-3 bg-[#99AD7A] text-black px-[6vh] py-[2vh]">
-        <Link href="/dashboard" className="text-white top-2 md:-top-1 left-2 sm:left-6 absolute text-2xl">
-          <img src="/images/logo.png" className="w-30 md:w-40" />
+      {showSellModal && (
+        <SellRegistration onClose={() => setShowSellModal(false)} />
+      )}
+      <div className="grid grid-cols-3 bg-blue-950 text-black px-[6vh] py-[2vh]">
+        <Link
+          href="/dashboard"
+          className="text-white -top-0.5 left-2 sm:left-6 absolute text-2xl"
+        >
         </Link>
         <div></div>
 
@@ -101,13 +179,13 @@ export default function Navbar() {
             <div className="text-shadow-sm text-shadow-black/5">Cart</div>
           </div>
 
-          {status === "loading" ? (
+          {loading ? (
             <div className="size-8 rounded-full bg-black/10 animate-pulse" />
           ) : user ? (
             <div className="relative " ref={menuRef}>
               <button
                 onClick={() => setMenuOpen((v) => !v)}
-                className="size-8 rounded-full bg-black text-white flex items-center justify-center text-sm font-semibold hover:opacity-90"
+                className="size-8 rounded-full bg-white text-black flex items-center justify-center text-sm font-semibold hover:opacity-90"
                 aria-label="Account menu"
               >
                 {initial}
@@ -126,6 +204,28 @@ export default function Navbar() {
                       {user.email}
                     </div>
                   </div>
+                  {isVendor ? (
+                    <div
+                      onClick={handleGoToHome}
+                      className="block px-4 py-2 text-sm hover:bg-black/5 cursor-pointer"
+                    >
+                      Go to Home
+                    </div>
+                  ) : (
+                    <div
+                      onClick={() => {
+                        if (user.business) {
+                          handleGoToShop();
+                        } else {
+                          setMenuOpen(false);
+                          setShowSellModal(true);
+                        }
+                      }}
+                      className="block px-4 py-2 text-sm hover:bg-black/5 cursor-pointer"
+                    >
+                      {user.business ? "Go to Shop" : "Sell your card"}
+                    </div>
+                  )}
                   <Link
                     href="/dashboard"
                     onClick={() => setMenuOpen(false)}
@@ -134,7 +234,7 @@ export default function Navbar() {
                     Dashboard
                   </Link>
                   <button
-                    onClick={() => signOut({ callbackUrl: "/login" })}
+                    onClick={handleLogout}
                     className="w-full text-left px-4 py-2 text-sm hover:bg-black/5"
                   >
                     Sign out
@@ -167,9 +267,9 @@ export default function Navbar() {
           )}
         </div>
       </div>
-      <div className="flex gap-8 bg-[#93a775] font-medium items-center">
-        <div className=" border-t border-[#cadcaf]/40 w-full gap-8 py-2 justify-center items-center flex">
-          {navLinks.map((link) => (
+      <div className="flex gap-8 bg-blue-950/95 font-medium items-center">
+        <div className=" border-t border-blue-900 w-full gap-8 py-2 justify-center items-center flex">
+          {links.map((link) => (
             <Link
               key={link.href}
               href={link.href}

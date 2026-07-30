@@ -7,16 +7,19 @@ import { useRouter } from "next/navigation";
 import BackgroundImage from "../../public/images/loginBackground.png";
 import { AnimatePresence, motion } from "framer-motion";
 import { collection, getDocs } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { auth, db } from "@/lib/firebase";
+import { syncSessionCookie } from "@/lib/session";
 import { ref, get, set } from "firebase/database";
+import PrismaticBurst from "@/components/PrismaticBurst";
+import Grainient from "@/components/Grainient";
 import {
-  getAuth,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
 } from "firebase/auth";
 import { toast } from "react-toastify";
 
-const auth = getAuth();
+const PRISMATIC_BURST_COLORS = ["#172554", "#273f91", "#597cf0"];
+const PRISMATIC_BURST_OFFSET = { x: 0, y: 0 };
 
 type RegisterUserParams = {
   firstName: string;
@@ -24,6 +27,30 @@ type RegisterUserParams = {
   email: string;
   contactNumber: string;
   password: string;
+};
+
+export const loginUser = async ({
+  email,
+  password,
+}: {
+  email: string;
+  password: string;
+}) => {
+  try {
+    const credential = await signInWithEmailAndPassword(auth, email, password);
+    const user = credential.user;
+
+    return {
+      success: true,
+      user,
+    };
+  } catch (error: any) {
+    console.warn(error);
+    return {
+      success: false,
+      message: error.message,
+    };
+  }
 };
 
 export const registerUser = async ({
@@ -57,31 +84,7 @@ export const registerUser = async ({
       user,
     };
   } catch (error: any) {
-    console.error(error);
-    return {
-      success: false,
-      message: error.message,
-    };
-  }
-};
-
-export const loginUser = async ({
-  email,
-  password,
-}: {
-  email: string;
-  password: string;
-}) => {
-  try {
-    const credential = await signInWithEmailAndPassword(auth, email, password);
-    const user = credential.user;
-
-    return {
-      success: true,
-      user,
-    };
-  } catch (error: any) {
-    console.error(error);
+    console.warn(error);
     return {
       success: false,
       message: error.message,
@@ -100,6 +103,7 @@ export default function Page() {
   const [contactNumber, setContactNumber] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -169,9 +173,7 @@ export default function Page() {
       setPassword("");
       setConfirmPassword("");
     } else {
-      const message = result.message || "Unable to create account.";
-      setError(message);
-      toast.error(message);
+      toast.error("Username or password are incorrect.");
     }
   };
 
@@ -205,29 +207,52 @@ export default function Page() {
 
     setLoading(false);
 
-    if (result.success) {
-      toast.success("Signed in successfully!");
+    if (result.success && result.user) {
       setEmail("");
       setPassword("");
-      router.push("/dashboard");
+
+      const idToken = await result.user.getIdToken();
+      await syncSessionCookie(idToken);
+
+      const snapshot = await get(ref(db, `users/${result.user.uid}`));
+      const profile = snapshot.val();
+
+      router.push(
+        profile?.role === "vendor" ? "/vendor/dashboard" : "/dashboard",
+      );
     } else {
-      const message = result.message || "Unable to sign in.";
-      setError(message);
-      toast.error(message);
+      toast.error("Incorrect username or password.");
     }
   };
 
   return (
-    <div className="h-full flex w-full items-center justify-center">
-      <Image
-        src={BackgroundImage}
-        alt="Background"
-        fill
-        priority
-        placeholder="blur"
-        className="object-cover w-full h-full z-10"
-        sizes="50vw"
-      />
+    <div className="h-full bg-black flex w-full items-center justify-center">
+      <div className="h-full w-full">
+        <Grainient
+          color1="#4863be"
+          color2="#172554"
+          color3="#4973ff"
+          timeSpeed={1.5}
+          colorBalance={0}
+          warpStrength={1}
+          warpFrequency={5}
+          warpSpeed={2}
+          warpAmplitude={50}
+          blendAngle={0}
+          blendSoftness={0.05}
+          rotationAmount={500}
+          noiseScale={2}
+          grainAmount={0.1}
+          grainScale={2}
+          grainAnimated={false}
+          contrast={1.5}
+          gamma={1}
+          saturation={1}
+          centerX={0}
+          centerY={0}
+          zoom={0.9}
+        />
+      </div>
       <AnimatePresence>
         <motion.div
           initial={{ opacity: 0, scale: 0.8 }}
@@ -424,6 +449,7 @@ export default function Page() {
                       required
                     />
                   </div>
+
                   <button
                     type="submit"
                     disabled={loading}
@@ -431,18 +457,17 @@ export default function Page() {
                   >
                     {loading ? "Signing up..." : "Sign up"}
                   </button>
-
-                  <div className="text-xs flex justify-center gap-1 md:text-sm text-center mt-3 text-slate-600">
-                    Already have an account?
-                    <div
-                      onClick={() => setIsRegistrating(false)}
-                      className="underline text-black cursor-pointer"
-                    >
-                      Sign in
-                    </div>
-                  </div>
                 </div>
               </form>
+              <div className="text-xs flex justify-center gap-1 md:text-sm text-center mt-3 text-slate-600">
+                Already have an account?
+                <div
+                  onClick={() => setIsRegistrating(false)}
+                  className="underline text-black cursor-pointer"
+                >
+                  Sign in
+                </div>
+              </div>
             </motion.div>
           ) : (
             <motion.div
@@ -450,7 +475,7 @@ export default function Page() {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.8 }}
             >
-              <div className=" text-4xl uppercase text-center mb-4">Login</div>
+              <div className=" text-4xl uppercase font-black text-center text-blue-950 mb-4">Login</div>
               <form
                 onSubmit={handleLogin}
                 className="gap-4 mt-2 text-sm flex flex-col"
@@ -506,33 +531,53 @@ export default function Page() {
 
                         <input
                           className="outline-none text-xs font-medium  w-full"
-                          type="password"
+                          type={showPassword ? "text" : "password"}
                           placeholder="Enter your password"
                           value={password}
                           onChange={(e) => setPassword(e.target.value)}
                           required
                         />
                       </div>
-                      <div className="border border-gray-400 rounded-sm px-3 items-center flex cursor-pointer">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          strokeWidth="1.5"
-                          stroke="currentColor"
-                          className="size-6"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"
-                          />
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"
-                          />
-                        </svg>
+                      <div
+                        onClick={() => setShowPassword((prev) => !prev)}
+                        className="border border-gray-400 rounded-sm px-3 items-center flex cursor-pointer"
+                      >
+                        {showPassword ? (
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            strokeWidth="1.5"
+                            stroke="currentColor"
+                            className="size-6"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M3.98 8.223A10.477 10.477 0 0 0 1.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0 1 12 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 0 1-4.293 5.774M6.228 6.228 3 3m3.228 3.228 3.65 3.65m7.894 7.894L21 21m-3.228-3.228-3.65-3.65m0 0a3 3 0 1 0-4.243-4.243m4.242 4.242L9.88 9.88"
+                            />
+                          </svg>
+                        ) : (
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            strokeWidth="1.5"
+                            stroke="currentColor"
+                            className="size-6"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z"
+                            />
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"
+                            />
+                          </svg>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -545,22 +590,21 @@ export default function Page() {
                   <button
                     type="submit"
                     disabled={loading}
-                    className="bg-[#99AD7A] hover:bg-[#86976b] text-white cursor-pointer py-2 rounded-sm w-full disabled:opacity-60"
+                    className="bg-blue-950 text-white cursor-pointer py-2 rounded-sm w-full disabled:opacity-60"
                   >
                     {loading ? "Signing in..." : "Login"}
                   </button>
-
-                  <div
-                    onClick={() => setIsRegistrating(true)}
-                    className="text-xs flex justify-center gap-1 md:text-sm text-center mt-3 text-slate-600"
-                  >
-                    Don&apos;t have an account?{" "}
-                    <div className="underline text-black cursor-pointer">
-                      Sign up
-                    </div>
-                  </div>
                 </div>
               </form>
+              <div
+                onClick={() => setIsRegistrating(true)}
+                className="text-xs flex justify-center gap-1 md:text-sm text-center mt-3 text-slate-600"
+              >
+                Don&apos;t have an account?{" "}
+                <div className="underline text-black cursor-pointer">
+                  Sign up
+                </div>
+              </div>
             </motion.div>
           )}
         </motion.div>
