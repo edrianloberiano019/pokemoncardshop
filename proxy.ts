@@ -9,7 +9,7 @@ const JWKS = createRemoteJWKSet(
   ),
 );
 
-const PUBLIC_PATHS = new Set(["/", "/login"]);
+const PUBLIC_PATHS = new Set(["/", "/login", "/shop"]);
 
 export async function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;

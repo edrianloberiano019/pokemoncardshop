@@ -1,53 +1,39 @@
 "use client";
-import Loading from "@/components/Loading";
-import Image from "next/image";
 import Navbar from "@/components/Navbar";
+import { db } from "@/lib/firebase";
 import { motion } from "framer-motion";
+import { onValue, ref } from "firebase/database";
 import { useEffect, useState } from "react";
 
-type PokemonDetails = {
+type FeaturedProduct = {
   id: string;
   name: string;
-  images: {
-    small: string;
-    large: string;
-  };
-  cardmarket?: {
-    prices?: {
-      trendPrice?: number;
-    };
-  };
+  price: number;
+  imageUrl?: string;
 };
 
 export default function page() {
-  const [cards, setCards] = useState<PokemonDetails[]>([]);
+  const [cards, setCards] = useState<FeaturedProduct[]>([]);
   const [hoverCard, setHoverCard] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const getCards = async () => {
-      try {
-        setLoading(true);
-        const res = await fetch("/api/featured-pokemon-cards");
-        const data = await res.json();
-        setCards(Array.isArray(data) ? data : []);
-      } catch (error) {
-        console.error(error);
-      } finally {
-        setLoading(false);
-      }
-    };
+    const unsubscribe = onValue(ref(db, "products"), (snapshot) => {
+      const data = snapshot.val() as Record<
+        string,
+        Omit<FeaturedProduct, "id">
+      > | null;
 
-    getCards();
+      const list = data
+        ? Object.entries(data).map(([id, value]) => ({ id, ...value }))
+        : [];
+
+      setCards(list.slice(0, 6));
+      setLoading(false);
+    });
+
+    return () => unsubscribe();
   }, []);
-
-  useEffect(() => {
-    console.log(cards);
-  });
-
-  // if (loading) {
-  //   return <Loading />;
-  // }
 
   return (
     <div className="h-full w-full flex flex-col overflow-hidden">
@@ -56,23 +42,23 @@ export default function page() {
         <motion.div
           initial={{ y: 20, opacity: 0 }}
           animate={{ y: 0, opacity: 1 }}
-          className="rounded-md h-60 sm:h-auto w-full relative overflow-hidden flex"
+          className="rounded-md h-60 sm:h-auto w-full relative flex"
         >
-          <div className="absolute text-white xl:gap-4 justify-center h-full flex flex-col px-4 lg:px-40 py-4 z-20">
-            <div className="drop-shadow-md  text-shadow-md text-shadow-black/60 shadow-black">
-              Featured Pokémon Collection
+          <div className="absolute bg-white/20 backdblur-[1px] w-full text-blue-950 xl:gap-4 justify-center h-full flex flex-col px-4 lg:px-40 py-4 z-20">
+            <div className="drop-shadow-md  text-shadow-md text-shadow-white/60 shadow-black">
+              Featured Collection
             </div>
-            <div className="text-2xl text-shadow-md text-shadow-black/60 xl:text-6xl">
+            <div className="text-2xl text-shadow-lg text-shadow-white/60 xl:text-6xl">
               <div>Power Up</div>
               <div>Your Collection</div>
             </div>
-            <div className="gap-2 flex  text-shadow-md text-shadow-black/60 flex-col">
-              <div className=" text-xs" >
+            <div className="gap-2 flex  text-shadow-md text-shadow-white/60 flex-col">
+              <div className=" text-xs">
                 From iconic classics to the latest expansions, discover cards
                 every Trainer wants.
               </div>
               <div className="flex">
-                <div className="font-medium  text-white hover:cursor-pointer px-4 py-2 flex items-center gap-2 rounded-full bg-black">
+                <div className="font-medium text-shadow-none  text-white hover:cursor-pointer px-4 py-2 flex items-center gap-2 rounded-full bg-blue-950">
                   Shop now{" "}
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -94,14 +80,14 @@ export default function page() {
           </div>
           <div className="w-full h-full z-10 flex">
             <img
-              className="w-full h-full max-h-[40vh] object-cover"
-              src="/images/pokemonbackground.jpg"
+              className="w-full shadow-md rounded-2xl shadow-black/40 h-full max-h-[40vh] object-cover"
+              src="/images/hero.png"
               alt="hero"
             />
           </div>
         </motion.div>
 
-        <div className="w-full hidden py-4 lg:grid border-b border-black/10 grid-cols-1 md:grid-cols-5 gap-4 content-center items-center justify-center text-black">
+        <div className="w-full hidden mt-4 py-4 lg:grid border-b border-black/10 grid-cols-1 md:grid-cols-5 gap-4 content-center items-center justify-center text-black">
           <motion.div
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
@@ -124,7 +110,7 @@ export default function page() {
             </svg>
 
             <div>
-              <div className="" >Fast Delivery</div>
+              <div className="">Fast Delivery</div>
               <div className="font-medium text-xs">On orders over $50</div>
             </div>
           </motion.div>
@@ -232,9 +218,7 @@ export default function page() {
 
             <div>
               <div className="">100% Authentic</div>
-              <div className="font-medium text-xs">
-                All cards are verified
-              </div>
+              <div className="font-medium text-xs">All cards are verified</div>
             </div>
           </motion.div>
         </div>
@@ -260,49 +244,61 @@ export default function page() {
             </div>
           </div>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 mt-4 relative gap-2 w-full h-full">
-            {cards.map((item, index) => (
-              <motion.div
-                onHoverStart={() => setHoverCard(item.id)}
-                onHoverEnd={() => setHoverCard("")}
-                initial={{ y: 20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: index * 0.1 }}
-                key={item.id}
-              >
-                <div className="border w-full h-50 xl:h-full overflow-hidden relative border-[#99AD7A] rounded-md flex flex-col">
-                  <div className="w-full flex-1 min-h-0 flex relative">
-                    <Image
-                      src={item.images.small}
-                      alt={item.name}
-                      fill
-                      sizes="(max-width: 768px) 50vw, 20vw"
-                      className={` ${hoverCard === item.id && "scale-110"} transition-all object-cover object-top `}
-                    />
-                  </div>
-                  <div
-                    className={` ${hoverCard === item.id ? "h-1/2" : "h-full"} transition-all bg-linear-to-t gap-4 from-black via-black/20 items-end  to-transparent w-full px-4 py-2 flex absolute bottom-0 flex-row font-medium justify-between `}
-                  >
-                    {" "}
-                    <div className="font-medium truncate text-white">
-                      <div className="text-base truncate" title={item.name}>
-                        {item.name}
+            {loading ? (
+              <div className="col-span-full flex text-gray-400 items-center justify-center h-40">
+                Loading products...
+              </div>
+            ) : cards.length === 0 ? (
+              <div className="col-span-full flex text-gray-400 items-center justify-center h-40">
+                No products available yet.
+              </div>
+            ) : (
+              cards.map((item, index) => (
+                <motion.div
+                  onHoverStart={() => setHoverCard(item.id)}
+                  onHoverEnd={() => setHoverCard("")}
+                  initial={{ y: 20, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ delay: index * 0.1 }}
+                  key={item.id}
+                >
+                  <div className="border w-full h-50 xl:h-full overflow-hidden relative border-blue-950 rounded-md flex flex-col">
+                    {item.imageUrl ? (
+                      <img
+                        src={item.imageUrl}
+                        alt={item.name}
+                        className={` ${hoverCard === item.id && "scale-110"} transition-all w-full flex-1 min-h-0 object-cover object-top `}
+                      />
+                    ) : (
+                      <div
+                        className={` ${hoverCard === item.id && "scale-110"} transition-all w-full flex-1 min-h-0 flex relative bg-gray-200 `}
+                      />
+                    )}
+                    <div
+                      className={` ${hoverCard === item.id ? "h-1/2" : "h-full"} transition-all bg-linear-to-t gap-4 from-blue-950 via-blue-950/20 items-end  to-transparent w-full px-4 py-2 flex absolute bottom-0 flex-row font-medium justify-between `}
+                    >
+                      <div className="font-medium truncate text-white">
+                        {" "}
+                        <div
+                          className="text-sm first-letter:uppercase "
+                          title={item.name}
+                        >
+                          {item.name}
+                        </div>
+                        <div className="text-sm">
+                          $ {item.price.toLocaleString()}
+                        </div>
                       </div>
-                      <div className="text-sm">
-                        ${" "}
-                        {(
-                          item.cardmarket?.prices?.trendPrice ?? 0
-                        ).toLocaleString()}
+                      <div className="items-center flex">
+                        <div className="cursor-pointer uppercase px-3 py-1 bg-green-600 rounded-full text-white text-[0.6rem] font-semibold">
+                          buy
+                        </div>
                       </div>
                     </div>
-                    <div className="items-center flex">
-                      <div className="cursor-pointer px-3 py-1 bg-green-600 rounded-full text-white text-[0.6rem] font-semibold">
-                        BUY
-                      </div>
-                    </div>
                   </div>
-                </div>
-              </motion.div>
-            ))}
+                </motion.div>
+              ))
+            )}
           </div>
         </div>
       </main>

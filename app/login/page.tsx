@@ -9,14 +9,17 @@ import { AnimatePresence, motion } from "framer-motion";
 import { collection, getDocs } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase";
 import { syncSessionCookie } from "@/lib/session";
-import { ref, get, set } from "firebase/database";
+import { ref, get, set, update } from "firebase/database";
 import PrismaticBurst from "@/components/PrismaticBurst";
 import Grainient from "@/components/Grainient";
 import {
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  signOut,
 } from "firebase/auth";
 import { toast } from "react-toastify";
+import { useAppDispatch } from "@/store/hooks";
+import { updateUser } from "@/store/slices/authSlice";
 
 const PRISMATIC_BURST_COLORS = ["#172554", "#273f91", "#597cf0"];
 const PRISMATIC_BURST_OFFSET = { x: 0, y: 0 };
@@ -76,6 +79,9 @@ export const registerUser = async ({
       email,
       contactNumber,
       role: "customer",
+      isApproved: false,
+      isDisabled: false,
+      isOnline: false,
       createdAt: Date.now(),
     });
 
@@ -94,6 +100,7 @@ export const registerUser = async ({
 
 export default function Page() {
   const router = useRouter();
+  const dispatch = useAppDispatch();
   const [email, setEmail] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -213,10 +220,47 @@ export default function Page() {
 
       const snapshot = await get(ref(db, `users/${result.user.uid}`));
       const profile = snapshot.val();
+      if (
+        profile?.role !== "vendor" &&
+        profile?.role !== "customer" &&
+        profile?.role !== "admin"
+      ) {
+        toast.error("This user is not authorized on this website.");
+        return;
+      }
+      if (profile?.isDisabled === true) {
+        await signOut(auth);
+        await syncSessionCookie(null);
+        toast.error(
+          "Your account is rejected. Please contact support for assistance.",
+        );
+        return;
+      }
+      if (profile?.isApproved === false) {
+        await signOut(auth);
+        await syncSessionCookie(null);
+        toast.info(
+          "Your account is in verification. Please wait for approval.",
+        );
+        return;
+      }
+      if (profile?.disabled) {
+        await signOut(auth);
+        await syncSessionCookie(null);
+        toast.error("This account has been disabled.");
+        return;
+      }
 
-      router.push(
-        profile?.role === "vendor" ? "/vendor/dashboard" : "/dashboard",
-      );
+      await update(ref(db, `users/${result.user.uid}`), { isOnline: true });
+      dispatch(updateUser({ isOnline: true }));
+
+      if (profile?.role === "admin") {
+        router.push("/admin/dashboard");
+      } else if (profile?.role === "vendor") {
+        router.push("/vendor/dashboard");
+      } else {
+        router.push("/dashboard");
+      }
       setEmail("");
       setPassword("");
     } else {

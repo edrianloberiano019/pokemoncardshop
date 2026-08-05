@@ -40,6 +40,7 @@ export default function AuthListener() {
             name: user.displayName,
             role: profile?.role,
             business,
+            isOnline: profile?.isOnline,
           }),
         );
       } else {

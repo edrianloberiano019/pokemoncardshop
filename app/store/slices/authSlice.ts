@@ -5,14 +5,18 @@ export interface Business {
   userId: string;
   businessName: string;
   businessDescription: string;
+  businessAddress: string;
+  lat?: number | null;
+  lng?: number | null;
 }
 
 export interface User {
   uid: string;
   email: string | null;
   name: string | null;
-  role?: "customer" | "vendor";
+  role?: "customer" | "vendor" | "admin";
   business?: Business | null;
+  isOnline?: boolean;
 }
 
 interface AuthState {

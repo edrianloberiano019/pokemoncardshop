@@ -4,41 +4,27 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { onValue, push, ref, serverTimestamp, set } from "firebase/database";
 import { toast } from "react-toastify";
-import {
-  AlignLeft,
-  Bold,
-  HelpCircle,
-  Image as ImageIcon,
-  Italic,
-  Link2,
-  List,
-  ListOrdered,
-  Underline,
-} from "lucide-react";
+import { HelpCircle, Image as ImageIcon } from "lucide-react";
+import { CldUploadWidget } from "next-cloudinary";
+import type { CloudinaryUploadWidgetResults } from "next-cloudinary";
 import Navbar from "@/components/Navbar";
 import Loading from "@/components/Loading";
 import UploadCardModal from "@/components/UploadCardModal";
+import EditProductModal, {
+  type EditableProduct,
+} from "@/components/EditProductModal";
 import { db } from "@/lib/firebase";
+import { useProductTypes } from "@/lib/productTypes";
+import { CARD_GRADES } from "@/lib/cardGrades";
+import { useBrands } from "@/lib/brands";
+import { toJpgUrl } from "@/lib/cloudinary";
 import { useAppSelector } from "@/store/hooks";
-
-const PRODUCT_TYPES = [
-  "Single Card",
-  "Booster Pack",
-  "Elite Trainer Box",
-  "Collection",
-  "Accessories",
-];
 
 const fieldClass =
   "w-full border border-blue-900 rounded-sm px-3 py-2 text-sm bg-white text-blue-950 placeholder:text-blue-900/40 focus:outline-none focus:ring-1 focus:ring-blue-900";
 
-interface VendorProduct {
-  id: string;
+interface VendorProduct extends EditableProduct {
   vendorId: string;
-  name: string;
-  price: number;
-  stockQuantity: number;
-  productType: string;
 }
 
 function FieldLabel({
@@ -80,14 +66,18 @@ export default function VendorProductsPage() {
   const router = useRouter();
   const user = useAppSelector((state) => state.auth.user);
   const loading = useAppSelector((state) => state.auth.loading);
+  const brands = useBrands();
+  const productTypes = useProductTypes();
   const [showUploadModal, setShowUploadModal] = useState(false);
-  const [productType, setProductType] = useState(PRODUCT_TYPES[0]);
+  const [productType, setProductType] = useState("");
   const [trackInventory, setTrackInventory] = useState(true);
   const [myProducts, setMyProducts] = useState<VendorProduct[]>([]);
-
+  const [editingProduct, setEditingProduct] = useState<VendorProduct | null>(
+    null,
+  );
+  const [imageUrl, setImageUrl] = useState("");
   const [productName, setProductName] = useState("");
-  const [category, setCategory] = useState("");
-  const [subcategory, setSubcategory] = useState("");
+  const [grade, setGrade] = useState("");
   const [brand, setBrand] = useState("");
   const [setExpansion, setSetExpansion] = useState("");
   const [description, setDescription] = useState("");
@@ -113,6 +103,18 @@ export default function VendorProductsPage() {
       toast.error("Product name is required.");
       return;
     }
+    if (!grade) {
+      toast.error("Grade is required.");
+      return;
+    }
+    if (!productType) {
+      toast.error("Product type is required.");
+      return;
+    }
+    if (!imageUrl) {
+      toast.error("Product image is required.");
+      return;
+    }
     if (!trimmedDescription) {
       toast.error("Product description is required.");
       return;
@@ -136,8 +138,8 @@ export default function VendorProductsPage() {
       await set(newProductRef, {
         vendorId: user.uid,
         name: trimmedName,
-        category: category || null,
-        subcategory: subcategory || null,
+        grade,
+        imageUrl,
         productType,
         brand: brand || null,
         setExpansion: setExpansion || null,
@@ -156,10 +158,10 @@ export default function VendorProductsPage() {
       });
 
       toast.success("Product saved.");
+      setImageUrl("");
       setProductName("");
-      setCategory("");
-      setSubcategory("");
-      setProductType(PRODUCT_TYPES[0]);
+      setGrade("");
+      setProductType("");
       setBrand("");
       setSetExpansion("");
       setDescription("");
@@ -215,6 +217,12 @@ export default function VendorProductsPage() {
 
   return (
     <div className="h-screen w-full flex flex-col overflow-hidden">
+      {editingProduct && (
+        <EditProductModal
+          product={editingProduct}
+          onClose={() => setEditingProduct(null)}
+        />
+      )}
       <Navbar />
       <main className=" bg-blue-100 py-[3vh] flex flex-col gap-2 px-[4vh] overflow-hidden text-black">
         <div className="grid grid-cols-3 gap-2 overflow-hidden">
@@ -230,7 +238,15 @@ export default function VendorProductsPage() {
                     key={product.id}
                     className="h-28 flex gap-4 border p-4 bg-white border-blue-950 rounded-sm"
                   >
-                    <div className="h-full bg-gray-200 rounded-md w-28"></div>
+                    {product.imageUrl ? (
+                      <img
+                        src={product.imageUrl}
+                        alt={product.name}
+                        className="h-full w-28 object-cover rounded-md"
+                      />
+                    ) : (
+                      <div className="h-full bg-gray-200 rounded-md w-28"></div>
+                    )}
                     <div className="flex justify-between w-full">
                       <div className="flex flex-col justify-between">
                         <div>
@@ -239,14 +255,38 @@ export default function VendorProductsPage() {
                             Stock: {product.stockQuantity}
                           </div>
                         </div>
-                        <div className="bg-green-300 px-3 py-1 text-xs font-normal rounded-sm w-fit">
-                          {product.productType}
+                        <div className="flex gap-2">
+                          <div className="bg-green-300 px-3 py-1 text-xs font-normal rounded-sm w-fit">
+                            {product.productType}
+                          </div>
+                          {product.grade && (
+                            <div className="bg-blue-200 px-3 py-1 text-xs font-normal rounded-sm w-fit">
+                              {product.grade}
+                            </div>
+                          )}
                         </div>
                       </div>
                       <div className="flex flex-col justify-between items-end">
                         <div>${product.price.toFixed(2)}</div>
-                        <div className="px-3 rounded-sm cursor-pointer py-1 bg-blue-950 text-white">
-                          +
+                        <div
+                          onClick={() => setEditingProduct(product)}
+                          className="px-1.5 rounded-sm cursor-pointer py-1 bg-blue-950 text-white"
+                          title="Update the information"
+                        >
+                          <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            strokeWidth="1.5"
+                            stroke="currentColor"
+                            className="size-5"
+                          >
+                            <path
+                              strokeLinecap="round"
+                              strokeLinejoin="round"
+                              d="m11.25 11.25.041-.02a.75.75 0 0 1 1.063.852l-.708 2.836a.75.75 0 0 0 1.063.853l.041-.021M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Zm-9-3.75h.008v.008H12V8.25Z"
+                            />
+                          </svg>
                         </div>
                       </div>
                     </div>
@@ -262,9 +302,44 @@ export default function VendorProductsPage() {
                   title="Product Information"
                   subtitle="Add basic details about your product."
                 />
-                <div className="border h-full text-xs px-4 flex items-center border-blue-950 rounded-sm hover:bg-gray-100 transition-all cursor-pointer">
-                  Upload an image
-                </div>
+                <CldUploadWidget
+                  uploadPreset="vendor_products"
+                  options={{ maxFiles: 1, sources: ["local", "camera"] }}
+                  onSuccess={(result: CloudinaryUploadWidgetResults) => {
+                    if (
+                      typeof result.info === "object" &&
+                      result.info?.secure_url
+                    ) {
+                      setImageUrl(toJpgUrl(result.info.secure_url));
+                    }
+                  }}
+                  onError={() => {
+                    toast.error("Image upload failed. Please try again.");
+                  }}
+                >
+                  {({ open }) => (
+                    <div
+                      onClick={() => open()}
+                      className="border h-full text-xs px-4 flex items-center gap-2 border-blue-950 rounded-sm hover:bg-gray-100 transition-all cursor-pointer"
+                    >
+                      {imageUrl ? (
+                        <>
+                          <img
+                            src={imageUrl}
+                            alt="Product preview"
+                            className="h-8 w-8 object-cover rounded-sm"
+                          />
+                          Change image
+                        </>
+                      ) : (
+                        <>
+                          <ImageIcon size={14} />
+                          Upload an image *
+                        </>
+                      )}
+                    </div>
+                  )}
+                </CldUploadWidget>
               </div>
 
               <div>
@@ -279,23 +354,33 @@ export default function VendorProductsPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <FieldLabel>Category</FieldLabel>
+                  <FieldLabel required>Grade</FieldLabel>
                   <select
-                    value={category}
-                    onChange={(e) => setCategory(e.target.value)}
+                    value={grade}
+                    onChange={(e) => setGrade(e.target.value)}
                     className={fieldClass}
                   >
-                    <option value="">Select category</option>
+                    <option value="">Select grade</option>
+                    {CARD_GRADES.map((g) => (
+                      <option key={g} value={g}>
+                        {g}
+                      </option>
+                    ))}
                   </select>
                 </div>
                 <div>
-                  <FieldLabel>Subcategory</FieldLabel>
+                  <FieldLabel>Brand</FieldLabel>
                   <select
-                    value={subcategory}
-                    onChange={(e) => setSubcategory(e.target.value)}
+                    value={brand}
+                    onChange={(e) => setBrand(e.target.value)}
                     className={fieldClass}
                   >
-                    <option value="">Select subcategory</option>
+                    <option value="">Select brand</option>
+                    {brands.map((b) => (
+                      <option key={b.id} value={b.name}>
+                        {b.name}
+                      </option>
+                    ))}
                   </select>
                 </div>
               </div>
@@ -303,45 +388,33 @@ export default function VendorProductsPage() {
               <div>
                 <FieldLabel required>Product Type</FieldLabel>
                 <div className="flex flex-wrap gap-2">
-                  {PRODUCT_TYPES.map((type) => (
+                  {productTypes.map((type) => (
                     <button
-                      key={type}
+                      key={type.id}
                       type="button"
-                      onClick={() => setProductType(type)}
+                      onClick={() => setProductType(type.name)}
                       className={`px-3 py-1.5 text-sm rounded-sm border ${
-                        productType === type
+                        productType === type.name
                           ? "border-blue-900 bg-blue-50 text-blue-950 font-semibold"
                           : "border-blue-900/30 text-blue-900/70 hover:border-blue-900"
                       }`}
                     >
-                      {type}
+                      {type.name}
                     </button>
                   ))}
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <FieldLabel>Brand / Series</FieldLabel>
-                  <select
-                    value={brand}
-                    onChange={(e) => setBrand(e.target.value)}
-                    className={fieldClass}
-                  >
-                    <option value="">Select brand or series</option>
-                  </select>
-                </div>
-                <div>
-                  <FieldLabel>Set / Expansion</FieldLabel>
-                  <select
-                    value={setExpansion}
-                    onChange={(e) => setSetExpansion(e.target.value)}
-                    className={fieldClass}
-                  >
-                    <option value="">Select set or expansion</option>
-                  </select>
-                </div>
-              </div>
+              {/* <div>
+                <FieldLabel>Set / Expansion</FieldLabel>
+                <select
+                  value={setExpansion}
+                  onChange={(e) => setSetExpansion(e.target.value)}
+                  className={fieldClass}
+                >
+                  <option value="">Select set or expansion</option>
+                </select>
+              </div> */}
 
               <div>
                 <FieldLabel required>Product Description</FieldLabel>

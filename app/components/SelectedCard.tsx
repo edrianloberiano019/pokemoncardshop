@@ -1,45 +1,97 @@
-import Image from "next/image";
-import React from "react";
+import React, { useState } from "react";
 import { motion } from "framer-motion";
+import { get, ref, serverTimestamp, set, update } from "firebase/database";
+import { toast } from "react-toastify";
+import { useRouter } from "next/navigation";
+import { db } from "@/lib/firebase";
+import { useAppSelector } from "@/store/hooks";
 
-type PokemonDetails = {
+type ShopProduct = {
   id: string;
+  vendorId?: string;
   name: string;
-  types?: string[];
-  rarity?: string;
-  images: {
-    small: string;
-    large: string;
-  };
-  cardmarket?: {
-    prices?: {
-      trendPrice?: number;
-    };
-  };
+  grade?: string;
+  productType?: string;
+  category?: string | null;
+  description?: string;
+  price: number;
+  compareAtPrice?: number | null;
+  stockQuantity?: number;
+  imageUrl?: string;
 };
 
 type SelectedCardProps = {
-  card: PokemonDetails;
+  card: ShopProduct;
   onClose: () => void;
 };
 
 export default function SelectedCard({ card, onClose }: SelectedCardProps) {
-  const price = card.cardmarket?.prices?.trendPrice ?? 0;
+  const router = useRouter();
+  const user = useAppSelector((state) => state.auth.user);
+  const [adding, setAdding] = useState(false);
+  const inStock = (card.stockQuantity ?? 0) > 0;
+
+  const handleBuy = async () => {
+    if (!user) {
+      onClose();
+      router.push("/login");
+      return;
+    }
+
+    setAdding(true);
+    try {
+      const itemRef = ref(db, `carts/${user.uid}/items/${card.id}`);
+      const snapshot = await get(itemRef);
+      const existing = snapshot.val() as {
+        quantity: number;
+        addedAt?: number;
+      } | null;
+      const nextQuantity = (existing?.quantity ?? 0) + 1;
+
+      if (card.stockQuantity != null && nextQuantity > card.stockQuantity) {
+        toast.error("Not enough stock available.");
+        return;
+      }
+
+      await set(itemRef, {
+        productId: card.id,
+        vendorId: card.vendorId ?? null,
+        name: card.name,
+        imageUrl: card.imageUrl ?? null,
+        quantity: nextQuantity,
+        priceAtAdd: card.price,
+        addedAt: existing?.addedAt ?? serverTimestamp(),
+      });
+      await update(ref(db, `carts/${user.uid}`), {
+        updatedAt: serverTimestamp(),
+      });
+
+      toast.success("Added to cart.");
+      onClose();
+    } catch (error) {
+      console.error(error);
+      toast.error("Failed to add to cart. Please try again.");
+    } finally {
+      setAdding(false);
+    }
+  };
 
   return (
-    <div className="absolute flex flex-col w-full items-center justify-center h-full z-100 top-0 left-0">
-      <div
-        onClick={() => onClose()}
-        className="absolute backdrop-blur-xs bg-black/40 z-10 w-full h-full "
-      ></div>
+    <div className="fixed flex flex-col w-full items-center justify-center h-full z-100 top-0 left-0">
       <motion.div
-        initial={{ scale: 0.8, opacity: 0 }}
-        animate={{ scale: 0.8, opacity: 1 }}
-        className="z-20 max-w-160 gap-4 relative justify-center bg-[#99AD7A] grid grid-cols-2 w-full h-120 p-4 rounded-md shadow-md shadow-black/40"
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        onClick={onClose}
+        className="fixed backdrop-blur-xs bg-black/40 z-10 w-full h-full"
+      ></motion.div>
+      <motion.div
+        initial={{ scale: 0.6 }}
+        animate={{ scale: 1 }}
+        className="z-20 max-w-xl w-full h-full mx-4 relative border border-blue-950 bg-white rounded-md shadow-2xl shadow-black/40 grid grid-cols-2 max-h-[45vh] overflow-hidden"
       >
         <div
-          onClick={() => onClose()}
-          className="absolute cursor-pointer hover:scale-110 hover:bg-red-700 transition-all top-2 right-2 text-whit border-4 border-[#99AD7A] bg-red-600 p-1 rounded-full"
+          onClick={onClose}
+          className="absolute cursor-pointer hover:scale-110 hover:bg-red-700 transition-all top-2 right-2 border-4 border-white bg-red-600 p-1 rounded-full z-30"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -56,31 +108,126 @@ export default function SelectedCard({ card, onClose }: SelectedCardProps) {
             />
           </svg>
         </div>
-        <div className="rounded-sm relative overflow-hidden">
-          {card.images.small ? (
-            <Image
-              src={card.images.small}
+
+        <div className="relative p-4 bg-white">
+          {card.imageUrl ? (
+            <img
+              src={card.imageUrl}
               alt={card.name}
-              fill
-              sizes="(max-width: 768px) 50vw, (max-width: 1280px) 25vw, 16vw"
-              className="object-fill scale-101 object-top "
+              className="w-full h-full object-cover rounded-md"
             />
           ) : (
-            <div className="skeleton bg-gray-200 w-full h-full"></div>
+            <div className="w-full h-full rounded-md bg-gray-200" />
           )}
         </div>
-        <div className="bg-[#6f7e59] justify-between h-full flex flex-col text-white p-4 rounded-sm">
-          <div className="flex flex-col">
-            <div className="text-lg font-semibold">{card.name}</div>
-            <div className="font-normal">
-              {[card.rarity, card.types?.join(", ")]
-                .filter(Boolean)
-                .join(" · ") || "No additional details available."}
+
+        <div className="p-4 flex flex-col justify-between overflow-hidden">
+          <div className="flex flex-col gap-3 overflow-auto pr-1">
+            <div>
+              <div className="font-black first-letter:uppercase text-blue-950 text-lg">
+                {card.name}
+              </div>
+              <div>
+                <div></div>
+                <div className="flex">
+                  <div className="flex gap-1 items-center">
+                    {[1, 2, 3, 4, 5].map((index) => (
+                      <svg
+                        key={index}
+                        xmlns="http://www.w3.org/2000/svg"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        strokeWidth="1.5"
+                        stroke="currentColor"
+                        className="size-6 fill-amber-500"
+                      >
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z"
+                        />
+                      </svg>
+                    ))}
+                    <div className="text-sm">3 Reviews</div>
+                  </div>
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2 mt-1">
+                {card.grade && (
+                  <div className="bg-blue-200 px-3 py-1 text-xs font-medium rounded-sm w-fit text-blue-950">
+                    {card.grade}
+                  </div>
+                )}
+                {card.productType && (
+                  <div className="bg-green-300 px-3 py-1 text-xs font-medium rounded-sm w-fit text-blue-950">
+                    {card.productType}
+                  </div>
+                )}
+                {card.category && (
+                  <div className="bg-blue-100 px-3 py-1 text-xs font-medium rounded-sm w-fit text-blue-950">
+                    {card.category}
+                  </div>
+                )}
+              </div>
             </div>
-            <div className="font-normal mt-2">${price.toLocaleString()}</div>
+
+            <div className="flex items-end gap-2">
+              <div className="text-2xl font-black text-blue-950">
+                ${card.price.toLocaleString()}
+              </div>
+              {card.compareAtPrice != null &&
+                card.compareAtPrice > card.price && (
+                  <div className="text-sm text-blue-900/40 line-through mb-0.5">
+                    ${card.compareAtPrice.toLocaleString()}
+                  </div>
+                )}
+            </div>
+
+            <div
+              className={`text-xs font-semibold w-fit px-2 py-1 rounded-sm ${
+                inStock
+                  ? "bg-green-100 text-green-700"
+                  : "bg-red-100 text-red-700"
+              }`}
+            >
+              {inStock ? (
+                <div className="gap-1 flex">
+                  <div>Stock:</div>
+                  {card.stockQuantity}
+                </div>
+              ) : (
+                "Out of Stock"
+              )}
+            </div>
           </div>
-          <div className="bg-[#99AD7A] hover:bg-[#90a274] transition-all cursor-pointer px-3 text-center py-1 rounded-sm">
-            BUY
+
+          <div className="mt-3 gap-2 flex">
+            <button
+              type="button"
+              disabled={!inStock || adding}
+              onClick={handleBuy}
+              className="bg-blue-950 w-full py-2 rounded-sm text-white text-sm font-semibold uppercase cursor-pointer hover:bg-blue-900 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+            >
+              {adding ? "Adding..." : "Buy"}
+            </button>
+
+            <div className="justify-center flex px-3 py-2 rounded-sm flex-col items-center bg-blue-950 text-white">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth="1.5"
+                stroke="currentColor"
+                className="size-5"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M13.5 21v-7.5a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 .75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349M3.75 21V9.349m0 0a3.001 3.001 0 0 0 3.75-.615A2.993 2.993 0 0 0 9.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 0 0 2.25 1.016c.896 0 1.7-.393 2.25-1.015a3.001 3.001 0 0 0 3.75.614m-16.5 0a3.004 3.004 0 0 1-.621-4.72l1.189-1.19A1.5 1.5 0 0 1 5.378 3h13.243a1.5 1.5 0 0 1 1.06.44l1.19 1.189a3 3 0 0 1-.621 4.72M6.75 18h3.75a.75.75 0 0 0 .75-.75V13.5a.75.75 0 0 0-.75-.75H6.75a.75.75 0 0 0-.75.75v3.75c0 .414.336.75.75.75Z"
+                />
+              </svg>
+              <div className="text-[0.5rem] text-nowrap">Go to store</div>
+            </div>
           </div>
         </div>
       </motion.div>
