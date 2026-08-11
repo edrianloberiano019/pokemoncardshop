@@ -15,6 +15,7 @@ type ShopProduct = {
   vendorId: string;
   name: string;
   grade?: string;
+  brand?: string | null;
   productType: string;
   category?: string | null;
   description?: string;
@@ -25,6 +26,7 @@ type ShopProduct = {
 };
 
 const emptyFilters: SidebarFilters = {
+  brands: [],
   productTypes: [],
   minPrice: "",
   maxPrice: "",
@@ -77,6 +79,12 @@ export default function ShopPage() {
     const query = search.trim().toLowerCase();
 
     return products.filter((product) => {
+      if (
+        filters.brands.length > 0 &&
+        !(product.brand && filters.brands.includes(product.brand))
+      ) {
+        return false;
+      }
       if (
         filters.productTypes.length > 0 &&
         !filters.productTypes.includes(product.productType)
@@ -162,7 +170,7 @@ export default function ShopPage() {
                           />
                         ) : (
                           <div
-                            className={` ${hoverCard === item.id && "scale-110"} transition-all w-full flex-1 min-h-0 flex relative bg-gray-200 `}
+                            className={` ${hoverCard === item.id && "scale-110"} skeleton transition-all w-full flex-1 min-h-0 flex relative bg-gray-200 `}
                           />
                         )}
                         <div

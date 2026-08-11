@@ -9,7 +9,6 @@ import { get, onValue, ref, update } from "firebase/database";
 import { auth, db } from "../lib/firebase";
 import { useAppDispatch, useAppSelector } from "../store/hooks";
 import { logout, updateUser, type Business } from "../store/slices/authSlice";
-import SellRegistration from "./SellRegistration";
 import CartDrawer from "./CartDrawer";
 import AdminProfileModal from "./AdminProfileModal";
 
@@ -32,9 +31,9 @@ const vendorNavLinks = [
 const adminNavLinks = [
   { label: "Dashboard", href: "/admin/dashboard" },
   { label: "Sales", href: "/admin/sales" },
-  { label: "Product", href: "/admin/product" },
-  { label: "Business", href: "/admin/business" },
-  { label: "Accounts", href: "/admin/accounts" },
+  { label: "Products", href: "/admin/products" },
+  { label: "Orders", href: "/admin/orders" },
+  { label: "Configuration", href: "/admin/accounts" },
 ];
 
 const LANGUAGES = [
@@ -52,7 +51,6 @@ export default function Navbar() {
   const user = useAppSelector((state) => state.auth.user);
   const loading = useAppSelector((state) => state.auth.loading);
   const [menuOpen, setMenuOpen] = useState(false);
-  const [showSellModal, setShowSellModal] = useState(false);
   const [showAdminProfile, setShowAdminProfile] = useState(false);
   const [showCart, setShowCart] = useState(false);
   const [cartCount, setCartCount] = useState(0);
@@ -168,20 +166,8 @@ export default function Navbar() {
     router.push("/dashboard");
   };
 
-  const handleGoToShop = async () => {
-    setMenuOpen(false);
-    if (user) {
-      await update(ref(db, `users/${user.uid}`), { role: "vendor" });
-      dispatch(updateUser({ role: "vendor" }));
-    }
-    router.push("/vendor/dashboard");
-  };
-
   return (
     <div className="flex flex-col">
-      {showSellModal && (
-        <SellRegistration onClose={() => setShowSellModal(false)} />
-      )}
       {showAdminProfile && (
         <AdminProfileModal onClose={() => setShowAdminProfile(false)} />
       )}
@@ -243,7 +229,7 @@ export default function Navbar() {
           </div>
           {!isAdmin && !isVendor && (
             <>
-              <div className="flex items-center cursor-pointer font-semibold text-xs gap-1 text-white">
+              {/* <div className="flex items-center cursor-pointer font-semibold text-xs gap-1 text-white">
                 <svg
                   xmlns="http://www.w3.org/2000/svg"
                   fill="none"
@@ -261,7 +247,7 @@ export default function Navbar() {
                 <div className="text-shadow-sm text-shadow-black/5">
                   Wishlist
                 </div>
-              </div>
+              </div> */}
 
               <div
                 onClick={() => setShowCart(true)}
@@ -318,26 +304,12 @@ export default function Navbar() {
                       {user.email}
                     </div>
                   </div>
-                  {isVendor ? (
+                  {isVendor && (
                     <div
                       onClick={handleGoToHome}
                       className="block px-4 py-2 text-sm hover:bg-black/5 cursor-pointer"
                     >
                       Go to Home
-                    </div>
-                  ) : isAdmin ? null : (
-                    <div
-                      onClick={() => {
-                        if (user.business) {
-                          handleGoToShop();
-                        } else {
-                          setMenuOpen(false);
-                          setShowSellModal(true);
-                        }
-                      }}
-                      className="block px-4 py-2 text-sm hover:bg-black/5 cursor-pointer"
-                    >
-                      {user.business ? "Go to Shop" : "Sell your card"}
                     </div>
                   )}
                   {isAdmin ? (

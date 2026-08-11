@@ -3,8 +3,10 @@
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { onValue, ref, update } from "firebase/database";
+import { motion } from "framer-motion";
 import Navbar from "@/components/Navbar";
 import Loading from "@/components/Loading";
+import DeliveryTrailMap from "@/components/DeliveryTrailMap";
 import { db } from "@/lib/firebase";
 import { useAppSelector } from "@/store/hooks";
 
@@ -28,6 +30,7 @@ interface RawOrder {
   items?: unknown;
   total: number;
   createdAt?: number;
+  readyToConfirm?: boolean;
 }
 
 interface Order {
@@ -37,6 +40,7 @@ interface Order {
   items: OrderItem[];
   total: number;
   createdAt?: number;
+  readyToConfirm?: boolean;
 }
 
 function normalizeItems(raw: unknown): OrderItem[] {
@@ -152,6 +156,15 @@ const STATUS_TEXT: Record<OrderStatus, string> = {
   to_rate: "Delivered — let others know what you think",
 };
 
+const STATUS_LABEL: Record<OrderStatus, string> = {
+  to_pay: "To Pay",
+  to_ship: "To Ship",
+  to_receive: "To Receive",
+  to_rate: "Delivered",
+};
+
+const SELLER_LOCATION = { lat: 14.6499, lng: 120.9809 };
+
 function formatDate(value?: number | string) {
   if (!value) return "";
   return new Date(value).toLocaleDateString("en-US", {
@@ -159,6 +172,22 @@ function formatDate(value?: number | string) {
     day: "numeric",
     year: "numeric",
   });
+}
+
+function computeDeliveryProgress(order: Order) {
+  const etas = order.items
+    .map((item) => item.estimatedArrivalDate)
+    .filter((value): value is string => Boolean(value))
+    .map((value) => new Date(value).getTime());
+
+  if (etas.length === 0 || !order.createdAt) return 0.5;
+
+  const deliveryDate = Math.max(...etas);
+  const start = order.createdAt;
+  if (deliveryDate <= start) return 1;
+
+  const fraction = (Date.now() - start) / (deliveryDate - start);
+  return Math.min(1, Math.max(0, fraction));
 }
 
 export default function OrdersPage() {
@@ -172,6 +201,11 @@ export default function OrdersPage() {
   const [businessNames, setBusinessNames] = useState<Record<string, string>>(
     {},
   );
+  const [buyerLocation, setBuyerLocation] = useState<{
+    lat: number;
+    lng: number;
+  } | null>(null);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
 
   useEffect(() => {
     if (authLoading) return;
@@ -194,6 +228,7 @@ export default function OrdersPage() {
               status: value.status,
               total: value.total,
               createdAt: value.createdAt,
+              readyToConfirm: value.readyToConfirm,
               items: normalizeItems(value.items),
             }))
             .filter((order) => order.userId === user.uid)
@@ -216,16 +251,38 @@ export default function OrdersPage() {
         { userId?: string; businessName?: string }
       > | null;
 
-      const map: Record<string, string> = {};
+      const nameMap: Record<string, string> = {};
       if (data) {
         for (const business of Object.values(data)) {
           if (business.userId && business.businessName) {
-            map[business.userId] = business.businessName;
+            nameMap[business.userId] = business.businessName;
           }
         }
       }
-      setBusinessNames(map);
+      setBusinessNames(nameMap);
     });
+
+    return () => unsubscribe();
+  }, [user?.uid]);
+
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    const unsubscribe = onValue(
+      ref(db, `users/${user.uid}/address`),
+      (snapshot) => {
+        const data = snapshot.val() as {
+          lat?: number | null;
+          lng?: number | null;
+        } | null;
+
+        if (data && typeof data.lat === "number" && typeof data.lng === "number") {
+          setBuyerLocation({ lat: data.lat, lng: data.lng });
+        } else {
+          setBuyerLocation(null);
+        }
+      },
+    );
 
     return () => unsubscribe();
   }, [user?.uid]);
@@ -242,6 +299,12 @@ export default function OrdersPage() {
     });
     setActiveTab("to_rate");
   };
+
+  const trailProgress = selectedOrder
+    ? computeDeliveryProgress(selectedOrder)
+    : 0;
+  const showTrailPanel = selectedOrder?.status === "to_receive";
+  const showTrail = Boolean(showTrailPanel && buyerLocation);
 
   if (authLoading || !user || !ordersLoaded) {
     return <Loading />;
@@ -292,75 +355,99 @@ export default function OrdersPage() {
                 className="bg-white border border-blue-900 rounded-md p-4 flex flex-col gap-3"
               >
                 <div className="flex items-center justify-between text-xs text-blue-900/60 border-b border-blue-900/10 pb-2">
-                  <div className="font-semibold text-blue-950">
-                    {order.userId}
+                  <div className="flex gap-1 text-blue-950">
+                    <div>Order ID:</div>
+                    <div className="font-semibold text-blue-950">
+                      {order.userId}
+                    </div>
                   </div>
                   <div>{formatDate(order.createdAt)}</div>
                 </div>
 
                 <div className="flex flex-col gap-3">
-                  {groupByVendor(order.items).map((group) => (
-                    <div
-                      key={group.vendorId}
-                      className="flex flex-col gap-2 border border-blue-900/10 rounded-sm p-2"
-                    >
-                      <div className="text-xs font-black text-blue-950 uppercase tracking-wide">
-                        {businessNames[group.vendorId] ?? "Unknown Seller"}
-                      </div>
-                      {group.items.map((item, index) => (
-                        <div key={index} className="flex items-center gap-3">
-                          {item.imageUrl ? (
-                            <img
-                              src={item.imageUrl}
-                              alt={item.name}
-                              className="w-14 h-14 object-cover rounded-sm shrink-0"
-                            />
-                          ) : (
-                            <div className="w-14 h-14 bg-gray-200 rounded-sm shrink-0" />
-                          )}
-                          <div className="flex-1 min-w-0">
-                            <div
-                              className="text-sm font-medium text-blue-950 truncate"
-                              title={item.name}
-                            >
-                              {item.name}
+                  {groupByVendor(order.items).map((group) => {
+                    const groupTotal = group.items.reduce(
+                      (sum, item) => sum + item.priceAtAdd * item.quantity,
+                      0,
+                    );
+
+                    return (
+                      <div
+                        key={group.vendorId}
+                        onClick={() => setSelectedOrder(order)}
+                        className="flex  cursor-pointer  hover:bg-blue-50/60 flex-col gap-2 border border-blue-900/10 rounded-sm p-2"
+                      >
+                        <div className="text-xs font-black text-blue-950 uppercase tracking-wide">
+                          {businessNames[group.vendorId] ?? "Unknown Seller"}
+                        </div>
+                        {group.items.map((item, index) => (
+                          <div
+                            key={index}
+                            className="flex items-center gap-3 rounded-sm transition-colors -mx-1 px-1"
+                          >
+                            {item.imageUrl ? (
+                              <img
+                                src={item.imageUrl}
+                                alt={item.name}
+                                className="w-14 h-14 object-cover rounded-sm shrink-0"
+                              />
+                            ) : (
+                              <div className="w-14 h-14 bg-gray-200 rounded-sm shrink-0" />
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <div
+                                className="text-sm font-medium text-blue-950 truncate"
+                                title={item.name}
+                              >
+                                {item.name}
+                              </div>
+                              <div className="text-xs text-blue-900/50">
+                                Qty: {item.quantity}
+                              </div>
+                              {(order.status === "to_ship" ||
+                                order.status === "to_receive") &&
+                                item.estimatedArrivalDate && (
+                                  <div className="text-xs text-blue-900/50">
+                                    Est. arrival:{" "}
+                                    {formatDate(item.estimatedArrivalDate)} (
+                                    {item.estimatedArrivalDays} day
+                                    {item.estimatedArrivalDays === 1 ? "" : "s"}
+                                    )
+                                  </div>
+                                )}
                             </div>
-                            <div className="text-xs text-blue-900/50">
-                              Qty: {item.quantity}
+                            <div className="text-sm font-semibold text-blue-950">
+                              $
+                              {(
+                                item.priceAtAdd * item.quantity
+                              ).toLocaleString()}
                             </div>
-                            {(order.status === "to_ship" ||
-                              order.status === "to_receive") &&
-                              item.estimatedArrivalDate && (
-                                <div className="text-xs text-blue-900/50">
-                                  Est. arrival:{" "}
-                                  {formatDate(item.estimatedArrivalDate)} (
-                                  {item.estimatedArrivalDays} day
-                                  {item.estimatedArrivalDays === 1
-                                    ? ""
-                                    : "s"}
-                                  )
-                                </div>
-                              )}
                           </div>
-                          <div className="text-sm font-semibold text-blue-950">
-                            $
-                            {(
-                              item.priceAtAdd * item.quantity
-                            ).toLocaleString()}
+                        ))}
+
+                        <div className="flex items-center justify-between">
+                          <div className="text-xs text-blue-900/60">
+                            {STATUS_TEXT[order.status]}
+                          </div>
+                          <div className="text-sm font-black text-blue-950">
+                            Total: ${groupTotal.toLocaleString()}
                           </div>
                         </div>
-                      ))}
-                    </div>
-                  ))}
-                </div>
-
-                <div className="flex items-center justify-between border-t border-blue-900/10 pt-3">
-                  <div className="text-xs text-blue-900/60">
-                    {STATUS_TEXT[order.status]}
-                  </div>
-                  <div className="text-sm font-black text-blue-950">
-                    Total: ${order.total.toLocaleString()}
-                  </div>
+                        {order.status === "to_receive" && (
+                          <div className="flex justify-end">
+                            <button
+                              type="button"
+                              disabled={!order.readyToConfirm}
+                              onClick={() => handleConfirmReceived(order.id)}
+                              className="bg-blue-950 py-2 px-4 rounded-sm text-white text-xs font-semibold uppercase cursor-pointer hover:bg-blue-900 transition-all disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-blue-950"
+                            >
+                              Confirm Received
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
 
                 {order.status === "to_pay" && (
@@ -369,16 +456,6 @@ export default function OrdersPage() {
                     className="bg-blue-950 py-2 rounded-sm text-white text-sm font-semibold uppercase cursor-pointer hover:bg-blue-900 transition-all"
                   >
                     Pay Now
-                  </button>
-                )}
-
-                {order.status === "to_receive" && (
-                  <button
-                    type="button"
-                    onClick={() => handleConfirmReceived(order.id)}
-                    className="bg-blue-950 py-2 rounded-sm text-white text-sm font-semibold uppercase cursor-pointer hover:bg-blue-900 transition-all"
-                  >
-                    Confirm Received
                   </button>
                 )}
 
@@ -425,6 +502,169 @@ export default function OrdersPage() {
           )}
         </div>
       </main>
+
+      {selectedOrder && (
+        <div className="fixed flex flex-col w-full items-center justify-center h-full z-100 top-0 left-0">
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            onClick={() => setSelectedOrder(null)}
+            className="fixed backdrop-blur-xs bg-black/40 z-10 w-full h-full"
+          />
+          <motion.div
+            initial={{ scale: 0.6 }}
+            animate={{ scale: 1 }}
+            className={`z-20 w-full mx-4 relative border border-blue-950 bg-white rounded-md shadow-2xl shadow-black/40 p-6 max-h-[80vh] text-black ${
+              showTrailPanel
+                ? "max-w-3xl overflow-hidden"
+                : "max-w-xl overflow-auto"
+            }`}
+          >
+            <div
+              onClick={() => setSelectedOrder(null)}
+              className="absolute cursor-pointer hover:scale-110 hover:bg-red-700 transition-all top-2 right-2 border-4 border-white bg-red-600 p-1 rounded-full z-30"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                strokeWidth="1.5"
+                stroke="currentColor"
+                className="size-4 text-white"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  d="M6 18 18 6M6 6l12 12"
+                />
+              </svg>
+            </div>
+
+            <div
+              className={
+                showTrailPanel
+                  ? "flex flex-col md:flex-row gap-4 h-full max-h-[calc(80vh-3rem)]"
+                  : ""
+              }
+            >
+              {showTrail && buyerLocation && (
+                <div className="w-full md:w-64 h-48 md:h-auto shrink-0">
+                  <DeliveryTrailMap
+                    fromLat={SELLER_LOCATION.lat}
+                    fromLng={SELLER_LOCATION.lng}
+                    toLat={buyerLocation.lat}
+                    toLng={buyerLocation.lng}
+                    fromLabel="Caloocan"
+                    toLabel="You"
+                    progress={trailProgress}
+                  />
+                </div>
+              )}
+
+              {showTrailPanel && !buyerLocation && (
+                <div className="w-full md:w-64 h-48 md:h-auto shrink-0 flex items-center justify-center text-center text-xs text-blue-900/50 border border-dashed border-blue-900/30 rounded-sm p-3">
+                  Add your delivery address in your profile to see the live
+                  map.
+                </div>
+              )}
+
+              <div
+                className={showTrailPanel ? "flex-1 min-w-0 overflow-auto" : ""}
+              >
+                <div className="flex items-center justify-between mb-4">
+                  <div className="font-black text-blue-950 text-lg">
+                    Order Details
+                  </div>
+                  <div className="text-xs bg-blue-100 text-blue-950 font-semibold uppercase px-2 py-1 rounded-sm">
+                    {STATUS_LABEL[selectedOrder.status] ??
+                      selectedOrder.status}
+                  </div>
+                </div>
+
+                <div className="text-xs text-blue-900/60 mb-4">
+                  Order #{selectedOrder.id.slice(-8).toUpperCase()} ·{" "}
+                  {formatDate(selectedOrder.createdAt)}
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  {groupByVendor(selectedOrder.items).map((group) => {
+                    const groupTotal = group.items.reduce(
+                      (sum, item) => sum + item.priceAtAdd * item.quantity,
+                      0,
+                    );
+
+                    return (
+                      <div
+                        key={group.vendorId}
+                        className="flex flex-col gap-2 border border-blue-900/10 rounded-sm p-2"
+                      >
+                        <div className="text-xs font-black text-blue-950 uppercase tracking-wide">
+                          {businessNames[group.vendorId] ?? "Unknown Seller"}
+                        </div>
+                        {group.items.map((item, index) => (
+                          <div key={index} className="flex items-center gap-3">
+                            {item.imageUrl ? (
+                              <img
+                                src={item.imageUrl}
+                                alt={item.name}
+                                className="w-12 h-12 object-cover rounded-sm shrink-0"
+                              />
+                            ) : (
+                              <div className="w-12 h-12 bg-gray-200 rounded-sm shrink-0" />
+                            )}
+                            <div className="flex-1 min-w-0">
+                              <div
+                                className="text-sm font-medium text-blue-950 truncate"
+                                title={item.name}
+                              >
+                                {item.name}
+                              </div>
+                              <div className="text-xs text-blue-900/50">
+                                Qty: {item.quantity} × $
+                                {item.priceAtAdd.toLocaleString()}
+                              </div>
+                              {(selectedOrder.status === "to_ship" ||
+                                selectedOrder.status === "to_receive") &&
+                                item.estimatedArrivalDate && (
+                                  <div className="text-xs text-blue-900/50">
+                                    Est. arrival:{" "}
+                                    {formatDate(item.estimatedArrivalDate)}
+                                  </div>
+                                )}
+                            </div>
+                            <div className="text-sm font-semibold text-blue-950">
+                              $
+                              {(
+                                item.priceAtAdd * item.quantity
+                              ).toLocaleString()}
+                            </div>
+                          </div>
+                        ))}
+
+                        <div className="flex items-center justify-between border-t border-blue-900/10 pt-2 mt-1">
+                          <div className="text-xs text-blue-900/60">
+                            {STATUS_TEXT[selectedOrder.status]}
+                          </div>
+                          <div className="text-sm font-black text-blue-950">
+                            Subtotal: ${groupTotal.toLocaleString()}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+
+                <div className="flex items-center justify-between border-t border-blue-900/10 pt-3 mt-4">
+                  <div className="text-xs text-blue-900/60">Order total</div>
+                  <div className="text-sm font-black text-blue-950">
+                    ${selectedOrder.total.toLocaleString()}
+                  </div>
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }

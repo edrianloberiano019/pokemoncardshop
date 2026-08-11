@@ -82,6 +82,7 @@ export const registerUser = async ({
       isApproved: false,
       isDisabled: false,
       isOnline: false,
+      isVerified: false,
       createdAt: Date.now(),
     });
 
@@ -179,6 +180,7 @@ export default function Page() {
       setContactNumber("");
       setPassword("");
       setConfirmPassword("");
+      setIsRegistrating(false);
     } else {
       toast.error("Username or password are incorrect.");
     }

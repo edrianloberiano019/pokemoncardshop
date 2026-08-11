@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import { useProductTypes } from "@/lib/productTypes";
+import { useBrands } from "@/lib/brands";
 
 export type SidebarFilters = {
+  brands: string[];
   productTypes: string[];
   minPrice: string;
   maxPrice: string;
@@ -13,6 +15,35 @@ const toggleValue = (list: string[], value: string) =>
   list.includes(value) ? list.filter((v) => v !== value) : [...list, value];
 
 const onlyDigits = (value: string) => value.replace(/[^0-9]/g, "");
+
+type BrandFilterProps = {
+  selected: string[];
+  onToggle: (name: string) => void;
+};
+
+const BrandFilter = ({ selected, onToggle }: BrandFilterProps) => {
+  const brands = useBrands();
+
+  return (
+    <div>
+      <div className="text-xs mt-2 font-semibold">Brands</div>
+      {brands.map((brand) => (
+        <div
+          key={brand.id}
+          className="flex items-center mt-1 gap-2 font-medium"
+        >
+          <input
+            className="w-4 h-4"
+            type="checkbox"
+            checked={selected.includes(brand.name)}
+            onChange={() => onToggle(brand.name)}
+          />
+          <div className="text-xs">{brand.name}</div>
+        </div>
+      ))}
+    </div>
+  );
+};
 
 type ProductTypeFilterProps = {
   selected: string[];
@@ -48,12 +79,13 @@ type SidebarProps = {
 };
 
 export default function Sidebar({ onApply }: SidebarProps) {
+  const [brands, setBrands] = useState<string[]>([]);
   const [productTypes, setProductTypes] = useState<string[]>([]);
   const [minPrice, setMinPrice] = useState("");
   const [maxPrice, setMaxPrice] = useState("");
 
   const handleApply = () => {
-    onApply({ productTypes, minPrice, maxPrice });
+    onApply({ brands, productTypes, minPrice, maxPrice });
   };
 
   return (
@@ -62,6 +94,10 @@ export default function Sidebar({ onApply }: SidebarProps) {
         <div>Search Filter</div>
 
         <div className="overflow-auto">
+          <BrandFilter
+            selected={brands}
+            onToggle={(name) => setBrands((prev) => toggleValue(prev, name))}
+          />
           <ProductTypeFilter
             selected={productTypes}
             onToggle={(name) =>

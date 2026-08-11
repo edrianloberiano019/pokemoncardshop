@@ -7,7 +7,10 @@ import { toast } from "react-toastify";
 import Navbar from "@/components/Navbar";
 import Loading from "@/components/Loading";
 import AccountDetailsModal from "@/components/AccountDetailsModal";
+import LookupListManager from "@/components/LookupListManager";
 import { db } from "@/lib/firebase";
+import { useBrands } from "@/lib/brands";
+import { useProductTypes } from "@/lib/productTypes";
 import { useAppSelector } from "@/store/hooks";
 
 type Account = {
@@ -29,6 +32,8 @@ export default function AdminAccountsPage() {
   const loading = useAppSelector((state) => state.auth.loading);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [selectedAccount, setSelectedAccount] = useState<Account | null>(null);
+  const brands = useBrands();
+  const productTypes = useProductTypes();
 
   useEffect(() => {
     if (loading) return;
@@ -209,6 +214,30 @@ export default function AdminAccountsPage() {
                 </div>
               ))
             )}
+          </div>
+        </div>
+
+        <div className="flex w-full gap-4">
+          <div className="flex-1 h-full">
+            <LookupListManager
+              title="Brands"
+              description="Manage the brand options vendors pick from when creating a product."
+              dbPath="brands"
+              items={brands}
+              placeholder="New brand name"
+              emptyLabel="No brands yet. Add one above."
+            />
+          </div>
+
+          <div className="flex-1 h-full">
+            <LookupListManager
+              title="Product Types"
+              description="Manage the product type options vendors pick from when creating a product."
+              dbPath="productTypes"
+              items={productTypes}
+              placeholder="New product type name"
+              emptyLabel="No product types yet. Add one above."
+            />
           </div>
         </div>
       </main>
