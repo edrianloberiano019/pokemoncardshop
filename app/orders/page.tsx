@@ -163,7 +163,73 @@ const STATUS_LABEL: Record<OrderStatus, string> = {
   to_rate: "Delivered",
 };
 
-const SELLER_LOCATION = { lat: 14.6499, lng: 120.9809 };
+const SELLER_RADIUS_KM = 10;
+
+const DEFAULT_BUYER_LOCATION = { lat: 39.7947066, lng: -105.1190026 };
+
+async function geocodeAddress(
+  addressText: string,
+): Promise<{ lat: number; lng: number } | null> {
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(addressText)}`,
+    );
+    if (!res.ok) return null;
+
+    const results = await res.json();
+    const match = Array.isArray(results) ? results[0] : null;
+    if (!match) return null;
+
+    const lat = parseFloat(match.lat);
+    const lng = parseFloat(match.lon);
+    if (Number.isNaN(lat) || Number.isNaN(lng)) return null;
+
+    return { lat, lng };
+  } catch {
+    return null;
+  }
+}
+
+function destinationPoint(
+  lat: number,
+  lng: number,
+  distanceKm: number,
+  bearingDeg: number,
+) {
+  const earthRadiusKm = 6371;
+  const angularDistance = distanceKm / earthRadiusKm;
+  const bearingRad = (bearingDeg * Math.PI) / 180;
+  const lat1 = (lat * Math.PI) / 180;
+  const lng1 = (lng * Math.PI) / 180;
+
+  const lat2 = Math.asin(
+    Math.sin(lat1) * Math.cos(angularDistance) +
+      Math.cos(lat1) * Math.sin(angularDistance) * Math.cos(bearingRad),
+  );
+  const lng2 =
+    lng1 +
+    Math.atan2(
+      Math.sin(bearingRad) * Math.sin(angularDistance) * Math.cos(lat1),
+      Math.cos(angularDistance) - Math.sin(lat1) * Math.sin(lat2),
+    );
+
+  return { lat: (lat2 * 180) / Math.PI, lng: (lng2 * 180) / Math.PI };
+}
+
+function deriveNearbySellerLocation(
+  buyer: { lat: number; lng: number },
+  seed: string,
+) {
+  let hash = 0;
+  for (let i = 0; i < seed.length; i++) {
+    hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
+  }
+
+  const bearing = hash % 360;
+  const distanceKm = SELLER_RADIUS_KM * (0.3 + ((hash >>> 8) % 700) / 1000);
+
+  return destinationPoint(buyer.lat, buyer.lng, distanceKm, bearing);
+}
 
 function formatDate(value?: number | string) {
   if (!value) return "";
@@ -267,24 +333,53 @@ export default function OrdersPage() {
 
   useEffect(() => {
     if (!user?.uid) return;
+    let cancelled = false;
 
     const unsubscribe = onValue(
       ref(db, `users/${user.uid}/address`),
-      (snapshot) => {
+      async (snapshot) => {
         const data = snapshot.val() as {
+          street?: string;
+          landmark?: string;
+          city?: string;
+          state?: string;
+          zip?: string;
+          country?: string;
           lat?: number | null;
           lng?: number | null;
         } | null;
 
-        if (data && typeof data.lat === "number" && typeof data.lng === "number") {
+        if (
+          data &&
+          typeof data.lat === "number" &&
+          typeof data.lng === "number"
+        ) {
           setBuyerLocation({ lat: data.lat, lng: data.lng });
-        } else {
+          return;
+        }
+
+        const addressText = data
+          ? [data.street, data.city, data.state, data.zip, data.country]
+              .filter(Boolean)
+              .join(", ")
+          : "";
+
+        if (!addressText) {
           setBuyerLocation(null);
+          return;
+        }
+
+        const geocoded = await geocodeAddress(addressText);
+        if (!cancelled) {
+          setBuyerLocation(geocoded);
         }
       },
     );
 
-    return () => unsubscribe();
+    return () => {
+      cancelled = true;
+      unsubscribe();
+    };
   }, [user?.uid]);
 
   const visibleOrders = useMemo(
@@ -303,8 +398,12 @@ export default function OrdersPage() {
   const trailProgress = selectedOrder
     ? computeDeliveryProgress(selectedOrder)
     : 0;
+  const effectiveBuyerLocation = buyerLocation ?? DEFAULT_BUYER_LOCATION;
+  const trailFromLocation = selectedOrder
+    ? deriveNearbySellerLocation(effectiveBuyerLocation, selectedOrder.id)
+    : null;
   const showTrailPanel = selectedOrder?.status === "to_receive";
-  const showTrail = Boolean(showTrailPanel && buyerLocation);
+  const showTrail = Boolean(showTrailPanel);
 
   if (authLoading || !user || !ordersLoaded) {
     return <Loading />;
@@ -313,8 +412,9 @@ export default function OrdersPage() {
   return (
     <div className="h-full w-full flex flex-col overflow-hidden">
       <Navbar />
-      <main className="flex-1 py-[3vh] bg-blue-100 flex flex-col gap-4 px-[3vh] xl:px-[8vh] overflow-auto text-black">
-        <div className="grid grid-cols-4 gap-2">
+      <main className="flex-1 py-[3vh] bg-blue-100 flex flex-col gap-4 px-[3vh] overflow-auto text-black">
+        <div className="flex flex-col lg:flex-row gap-4">
+        <div className="grid grid-cols-4 lg:grid-cols-1 lg:w-56 shrink-0 gap-2 h-fit">
           {TABS.map((tab) => {
             const count = orders.filter((o) => o.status === tab.id).length;
             const isActive = activeTab === tab.id;
@@ -329,7 +429,7 @@ export default function OrdersPage() {
                     : "bg-white border-blue-900 text-blue-950 hover:bg-blue-50"
                 }`}
               >
-                <div className="flex gap-2 items-center">
+                <div className="flex flex-col md:flex-row gap-2 items-center">
                   {tab.icon}
                   <div className="text font-semibold">{tab.label}</div>
                 </div>
@@ -343,7 +443,7 @@ export default function OrdersPage() {
           })}
         </div>
 
-        <div className="flex flex-col gap-3">
+        <div className="flex-1 flex flex-col gap-3 min-w-0">
           {visibleOrders.length === 0 ? (
             <div className="border border-dashed border-blue-900/30 rounded-md flex items-center justify-center text-sm text-blue-900/50 py-16">
               No orders in this category.
@@ -501,6 +601,7 @@ export default function OrdersPage() {
             ))
           )}
         </div>
+        </div>
       </main>
 
       {selectedOrder && (
@@ -547,26 +648,19 @@ export default function OrdersPage() {
                   : ""
               }
             >
-              {showTrail && buyerLocation && (
+              {/* {showTrail && trailFromLocation && (
                 <div className="w-full md:w-64 h-48 md:h-auto shrink-0">
                   <DeliveryTrailMap
-                    fromLat={SELLER_LOCATION.lat}
-                    fromLng={SELLER_LOCATION.lng}
-                    toLat={buyerLocation.lat}
-                    toLng={buyerLocation.lng}
-                    fromLabel="Caloocan"
+                    fromLat={trailFromLocation.lat}
+                    fromLng={trailFromLocation.lng}
+                    toLat={effectiveBuyerLocation.lat}
+                    toLng={effectiveBuyerLocation.lng}
+                    fromLabel="Seller"
                     toLabel="You"
                     progress={trailProgress}
                   />
                 </div>
-              )}
-
-              {showTrailPanel && !buyerLocation && (
-                <div className="w-full md:w-64 h-48 md:h-auto shrink-0 flex items-center justify-center text-center text-xs text-blue-900/50 border border-dashed border-blue-900/30 rounded-sm p-3">
-                  Add your delivery address in your profile to see the live
-                  map.
-                </div>
-              )}
+              )} */}
 
               <div
                 className={showTrailPanel ? "flex-1 min-w-0 overflow-auto" : ""}

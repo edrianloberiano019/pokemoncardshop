@@ -16,6 +16,7 @@ import type { TooltipContentProps } from "recharts";
 import Navbar from "@/components/Navbar";
 import Loading from "@/components/Loading";
 import { db } from "@/lib/firebase";
+import { resolveProductTypeName, useProductTypes } from "@/lib/productTypes";
 import { useAppSelector } from "@/store/hooks";
 
 type SalesFilter = "thisWeek" | "lastWeek" | "thisMonth" | "lastMonth";
@@ -218,6 +219,7 @@ export default function VendorSalesPage() {
   const loading = useAppSelector((state) => state.auth.loading);
   const [myProducts, setMyProducts] = useState<VendorProduct[]>([]);
   const [productsLoaded, setProductsLoaded] = useState(false);
+  const productTypes = useProductTypes();
 
   useEffect(() => {
     const uid = user?.uid;
@@ -388,7 +390,10 @@ export default function VendorSalesPage() {
                         </td>
                         <td className="py-2 px-2">
                           <span className="bg-green-300 px-2 py-0.5 text-xs rounded-sm">
-                            {product.productType}
+                            {resolveProductTypeName(
+                              product.productType,
+                              productTypes,
+                            )}
                           </span>
                         </td>
                         <td className="py-2 px-2 text-right">

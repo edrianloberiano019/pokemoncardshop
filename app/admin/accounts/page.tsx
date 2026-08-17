@@ -21,8 +21,8 @@ type Account = {
   contactNumber?: string;
   role?: string;
   isApproved?: boolean;
-  isDisabled?: boolean;
   disabled?: boolean;
+  deleted?: boolean;
   isOnline?: boolean;
 };
 
@@ -56,21 +56,16 @@ export default function AdminAccountsPage() {
     return () => unsubscribe();
   }, [user]);
 
-  const handleApprove = async (accountId: string) => {
+  const handleRecover = async (accountId: string) => {
     try {
-      await update(ref(db, `users/${accountId}`), { isApproved: true });
+      await update(ref(db, `users/${accountId}`), {
+        disabled: false,
+        deleted: false,
+      });
+      toast.success("Account recovered.");
     } catch (error) {
       console.warn(error);
-      toast.error("Failed to approve account.");
-    }
-  };
-
-  const handleReject = async (accountId: string) => {
-    try {
-      await update(ref(db, `users/${accountId}`), { isDisabled: true });
-    } catch (error) {
-      console.warn(error);
-      toast.error("Failed to reject account.");
+      toast.error("Failed to recover account.");
     }
   };
 
@@ -78,8 +73,8 @@ export default function AdminAccountsPage() {
     return <Loading />;
   }
 
-  const approvedAccounts = accounts.filter((a) => a.isApproved !== false);
-  const pendingAccounts = accounts.filter((a) => a.isApproved === false);
+  const activeAccounts = accounts.filter((a) => !a.disabled && !a.deleted);
+  const inactiveAccounts = accounts.filter((a) => a.disabled || a.deleted);
 
   return (
     <div className="h-full w-full flex flex-col overflow-hidden">
@@ -90,12 +85,12 @@ export default function AdminAccountsPage() {
             <div className="flex justify-center px-4 py-2 text-white text-center bg-blue-950 border-b">
               Accounts
             </div>
-            {approvedAccounts.length === 0 ? (
+            {activeAccounts.length === 0 ? (
               <div className="text-xs text-gray-400 flex items-center justify-center py-8">
-                No approved accounts yet.
+                No accounts yet.
               </div>
             ) : (
-              approvedAccounts.map((account) => (
+              activeAccounts.map((account) => (
                 <div
                   key={account.id}
                   className="grid grid-cols-5 px-3 py-2 items-center font-normal text-sm"
@@ -158,14 +153,14 @@ export default function AdminAccountsPage() {
           </div>
           <div className="bg-white w-180 overflow-hidden border rounded-md border-blue-950 h-full">
             <div className="flex justify-center px-4 py-2 text-white text-center bg-blue-950 border-b">
-              Account approvals
+              Disabled / Deleted Accounts
             </div>
-            {pendingAccounts.length === 0 ? (
+            {inactiveAccounts.length === 0 ? (
               <div className="text-xs text-gray-400 flex items-center justify-center py-8">
-                No pending approvals.
+                No disabled or deleted accounts.
               </div>
             ) : (
-              pendingAccounts.map((account) => (
+              inactiveAccounts.map((account) => (
                 <div
                   key={account.id}
                   className="grid grid-cols-4 px-3 py-2 items-center font-normal text-sm"
@@ -175,42 +170,25 @@ export default function AdminAccountsPage() {
                       .filter(Boolean)
                       .join(" ") || "—"}
                   </div>
-                  <div>{account.role || "—"}</div>
-                  {account.isDisabled ? (
-                    <div className="flex justify-end">
-                      <div className="bg-red-100 text-red-700 font-black uppercase text-xs px-3 py-1.5 rounded-sm">
-                        Rejected
-                      </div>
+                  <div>
+                    <div
+                      className={`w-fit font-black uppercase text-[0.65rem] px-2 py-1 rounded-sm ${
+                        account.deleted
+                          ? "bg-red-100 text-red-700"
+                          : "bg-amber-100 text-amber-700"
+                      }`}
+                    >
+                      {account.deleted ? "Deleted" : "Disabled"}
                     </div>
-                  ) : (
-                    <div className="flex gap-2">
-                      <div
-                        onClick={() => handleApprove(account.id)}
-                        className="bg-blue-900 cursor-pointer font-black text-white px-3 py-1.5 rounded-sm"
-                      >
-                        Approve
-                      </div>
-                      <div
-                        onClick={() => handleReject(account.id)}
-                        className="bg-red-600 cursor-pointer items-center flex text-white px-2 py-1.5 rounded-sm"
-                      >
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          strokeWidth="2.5"
-                          stroke="currentColor"
-                          className="size-4"
-                        >
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M6 18 18 6M6 6l12 12"
-                          />
-                        </svg>
-                      </div>
+                  </div>
+                  <div className="flex justify-end">
+                    <div
+                      onClick={() => handleRecover(account.id)}
+                      className="bg-blue-900 cursor-pointer font-black text-white px-3 py-1.5 rounded-sm"
+                    >
+                      Recover
                     </div>
-                  )}
+                  </div>
                 </div>
               ))
             )}

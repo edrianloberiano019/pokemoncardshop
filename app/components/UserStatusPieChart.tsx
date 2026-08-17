@@ -8,7 +8,8 @@ import { db } from "@/lib/firebase";
 
 type Account = {
   isOnline?: boolean;
-  isDisabled?: boolean;
+  disabled?: boolean;
+  deleted?: boolean;
 };
 
 type StatusSlice = {
@@ -42,7 +43,7 @@ export default function UserStatusPieChart() {
 
   const online = accounts.filter((a) => a.isOnline).length;
   const offline = accounts.length - online;
-  const disabled = accounts.filter((a) => a.isDisabled).length;
+  const disabled = accounts.filter((a) => a.disabled || a.deleted).length;
   const enabled = accounts.length - disabled;
 
   const slices: StatusSlice[] = [

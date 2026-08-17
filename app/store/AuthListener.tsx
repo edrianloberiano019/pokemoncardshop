@@ -1,15 +1,47 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { onIdTokenChanged } from "firebase/auth";
-import { get, ref } from "firebase/database";
+import { get, ref, serverTimestamp, set, update } from "firebase/database";
 import { auth, db } from "../lib/firebase";
 import { syncSessionCookie } from "../lib/session";
-import { useAppDispatch } from "./hooks";
+import { useAppDispatch, useAppSelector } from "./hooks";
 import { login, logout, type Business } from "./slices/authSlice";
+import { clearCart, selectCartItems, type CartItem } from "./slices/cartSlice";
+
+async function mergeGuestCartIntoFirebase(uid: string, items: CartItem[]) {
+  await Promise.all(
+    items.map(async (item) => {
+      const itemRef = ref(db, `carts/${uid}/items/${item.id}`);
+      const snapshot = await get(itemRef);
+      const existing = snapshot.val() as {
+        quantity?: number;
+        addedAt?: number;
+      } | null;
+
+      await set(itemRef, {
+        productId: item.id,
+        vendorId: item.vendorId ?? null,
+        name: item.name,
+        imageUrl: item.image ?? null,
+        quantity: (existing?.quantity ?? 0) + item.quantity,
+        priceAtAdd: item.price,
+        addedAt: existing?.addedAt ?? serverTimestamp(),
+      });
+    }),
+  );
+
+  await update(ref(db, `carts/${uid}`), { updatedAt: serverTimestamp() });
+}
 
 export default function AuthListener() {
   const dispatch = useAppDispatch();
+  const guestItems = useAppSelector(selectCartItems);
+  const guestItemsRef = useRef<CartItem[]>(guestItems);
+
+  useEffect(() => {
+    guestItemsRef.current = guestItems;
+  }, [guestItems]);
 
   useEffect(() => {
     const unsubscribe = onIdTokenChanged(auth, async (user) => {
@@ -43,6 +75,16 @@ export default function AuthListener() {
             isOnline: profile?.isOnline,
           }),
         );
+
+        const pendingGuestItems = guestItemsRef.current;
+        if (pendingGuestItems.length > 0) {
+          try {
+            await mergeGuestCartIntoFirebase(user.uid, pendingGuestItems);
+            dispatch(clearCart());
+          } catch (error) {
+            console.error("Failed to merge guest cart:", error);
+          }
+        }
       } else {
         await syncSessionCookie(null);
         dispatch(logout());

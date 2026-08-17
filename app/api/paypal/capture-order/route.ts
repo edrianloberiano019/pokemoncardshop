@@ -29,6 +29,49 @@ interface BusinessRecord {
   lng?: number | null;
 }
 
+async function decrementStock(
+  productId: string,
+  qty: number,
+  idToken: string,
+) {
+  const url = `${DATABASE_URL}/products/${productId}/stockQuantity.json?auth=${idToken}`;
+
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const getRes = await fetch(url, {
+      headers: { "X-Firebase-ETag": "true" },
+      cache: "no-store",
+    });
+    if (!getRes.ok) return;
+
+    const etag = getRes.headers.get("ETag");
+    const current = (await getRes.json()) as number | null;
+    if (typeof current !== "number") return;
+
+    const next = Math.max(0, current - qty);
+    const putRes = await fetch(url, {
+      method: "PUT",
+      headers: {
+        "Content-Type": "application/json",
+        ...(etag ? { "if-match": etag } : {}),
+      },
+      body: JSON.stringify(next),
+    });
+
+    if (putRes.ok) return;
+    if (putRes.status === 412) continue;
+
+    console.error(
+      `Failed to decrement stock for product ${productId}:`,
+      await putRes.text(),
+    );
+    return;
+  }
+
+  console.error(
+    `Exhausted retries decrementing stock for product ${productId}`,
+  );
+}
+
 export async function POST(req: NextRequest) {
   try {
     const session = await getVerifiedSession();
@@ -156,6 +199,41 @@ export async function POST(req: NextRequest) {
       if (orderRes.ok) {
         const created = await orderRes.json();
         orderId = created.name;
+
+        const transactionRes = await fetch(
+          `${DATABASE_URL}/transactions.json?auth=${session.idToken}`,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              userId: session.uid,
+              orderId,
+              paymentMethod: "paypal",
+              paypalOrderId: orderID,
+              paypalCaptureId:
+                capture?.purchase_units?.[0]?.payments?.captures?.[0]?.id ??
+                null,
+              payerEmail: capture?.payer?.email_address ?? null,
+              total,
+              itemCount: items.length,
+              status: "completed",
+              createdAt: { ".sv": "timestamp" },
+            }),
+          },
+        );
+
+        if (!transactionRes.ok) {
+          console.error(
+            "Failed to persist transaction record:",
+            await transactionRes.text(),
+          );
+        }
+
+        await Promise.all(
+          items.map((item) =>
+            decrementStock(item.productId, item.quantity, session.idToken),
+          ),
+        );
       } else {
         console.error(
           "Failed to persist order record:",

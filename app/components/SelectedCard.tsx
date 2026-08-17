@@ -2,9 +2,10 @@ import React, { useState } from "react";
 import { motion } from "framer-motion";
 import { get, ref, serverTimestamp, set, update } from "firebase/database";
 import { toast } from "react-toastify";
-import { useRouter } from "next/navigation";
 import { db } from "@/lib/firebase";
-import { useAppSelector } from "@/store/hooks";
+import { resolveProductTypeName, useProductTypes } from "@/lib/productTypes";
+import { useAppDispatch, useAppSelector } from "@/store/hooks";
+import { addItem, selectCartItems } from "@/store/slices/cartSlice";
 
 type ShopProduct = {
   id: string;
@@ -18,6 +19,7 @@ type ShopProduct = {
   compareAtPrice?: number | null;
   stockQuantity?: number;
   imageUrl?: string;
+  images?: string[];
 };
 
 type SelectedCardProps = {
@@ -26,15 +28,41 @@ type SelectedCardProps = {
 };
 
 export default function SelectedCard({ card, onClose }: SelectedCardProps) {
-  const router = useRouter();
+  const dispatch = useAppDispatch();
   const user = useAppSelector((state) => state.auth.user);
+  const guestCartItems = useAppSelector(selectCartItems);
+  const productTypes = useProductTypes();
   const [adding, setAdding] = useState(false);
+  const [hoveredImage, setHoveredImage] = useState<string | null>(null);
   const inStock = (card.stockQuantity ?? 0) > 0;
+  const activeImage = hoveredImage ?? card.imageUrl;
+  const otherImages = (card.images ?? [])
+    .filter((url) => url !== card.imageUrl)
+    .slice(0, 4);
 
   const handleBuy = async () => {
     if (!user) {
+      const existingGuestQuantity =
+        guestCartItems.find((item) => item.id === card.id)?.quantity ?? 0;
+
+      if (
+        card.stockQuantity != null &&
+        existingGuestQuantity + 1 > card.stockQuantity
+      ) {
+        toast.error("Not enough stock available.");
+        return;
+      }
+
+      dispatch(
+        addItem({
+          id: card.id,
+          name: card.name,
+          price: card.price,
+          image: card.imageUrl,
+          vendorId: card.vendorId,
+        }),
+      );
       onClose();
-      router.push("/login");
       return;
     }
 
@@ -66,7 +94,6 @@ export default function SelectedCard({ card, onClose }: SelectedCardProps) {
         updatedAt: serverTimestamp(),
       });
 
-      toast.success("Added to cart.");
       onClose();
     } catch (error) {
       console.error(error);
@@ -87,11 +114,11 @@ export default function SelectedCard({ card, onClose }: SelectedCardProps) {
       <motion.div
         initial={{ scale: 0.6 }}
         animate={{ scale: 1 }}
-        className="z-20 max-w-xl w-full h-full mx-4 relative border border-blue-950 bg-white rounded-md shadow-2xl shadow-black/40 grid grid-cols-2 max-h-[45vh] overflow-hidden"
+        className="z-20 w-[95%] sm:max-w-2xl md:max-w-3xl h-[90vh] sm:h-auto sm:max-h-[80vh] mx-4 relative border border-blue-950 bg-white rounded-md shadow-2xl shadow-black/40 grid grid-cols-1 sm:grid-cols-2 grid-rows-[auto_1fr] sm:grid-rows-1 overflow-hidden"
       >
         <div
           onClick={onClose}
-          className="absolute cursor-pointer hover:scale-110 hover:bg-red-700 transition-all top-2 right-2 border-4 border-white bg-red-600 p-1 rounded-full z-30"
+          className="absolute cursor-pointer hover:scale-110 hover:bg-red-700 transition-all top-2 right-2 bg-red-600 p-1 rounded-full z-30"
         >
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -109,21 +136,43 @@ export default function SelectedCard({ card, onClose }: SelectedCardProps) {
           </svg>
         </div>
 
-        <div className="relative p-4 bg-white">
-          {card.imageUrl ? (
-            <img
-              src={card.imageUrl}
-              alt={card.name}
-              className="w-full h-full object-cover rounded-md"
-            />
-          ) : (
-            <div className="w-full h-full rounded-md bg-gray-200" />
+        <div className="relative p-4 bg-white flex flex-col gap-2 h-56 sm:h-auto">
+          <div className="flex-1 min-h-0">
+            {activeImage ? (
+              <img
+                src={activeImage}
+                alt={card.name}
+                className="w-full h-full object-cover rounded-md"
+              />
+            ) : (
+              <div className="w-full h-full rounded-md bg-gray-200" />
+            )}
+          </div>
+
+          {otherImages.length > 0 && (
+            <div className="flex gap-2 shrink-0">
+              {otherImages.map((url) => (
+                <button
+                  key={url}
+                  type="button"
+                  onMouseEnter={() => setHoveredImage(url)}
+                  onMouseLeave={() => setHoveredImage(null)}
+                  className="size-12 rounded-sm overflow-hidden border border-blue-900/20 hover:border-blue-900 transition-all shrink-0 cursor-pointer"
+                >
+                  <img
+                    src={url}
+                    alt={card.name}
+                    className="w-full h-full object-cover"
+                  />
+                </button>
+              ))}
+            </div>
           )}
         </div>
 
         <div className="p-4 flex flex-col justify-between overflow-hidden">
-          <div className="flex flex-col gap-3 overflow-auto pr-1">
-            <div>
+          <div className="flex h-full flex-col gap-3 pr-1">
+            <div className="h-full" >
               <div className="font-black first-letter:uppercase text-blue-950 text-lg">
                 {card.name}
               </div>
@@ -131,7 +180,7 @@ export default function SelectedCard({ card, onClose }: SelectedCardProps) {
                 <div></div>
                 <div className="flex">
                   <div className="flex gap-1 items-center">
-                    {[1, 2, 3, 4, 5].map((index) => (
+                    {/* {[1, 2, 3, 4, 5].map((index) => (
                       <svg
                         key={index}
                         xmlns="http://www.w3.org/2000/svg"
@@ -147,8 +196,8 @@ export default function SelectedCard({ card, onClose }: SelectedCardProps) {
                           d="M11.48 3.499a.562.562 0 0 1 1.04 0l2.125 5.111a.563.563 0 0 0 .475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 0 0-.182.557l1.285 5.385a.562.562 0 0 1-.84.61l-4.725-2.885a.562.562 0 0 0-.586 0L6.982 20.54a.562.562 0 0 1-.84-.61l1.285-5.386a.562.562 0 0 0-.182-.557l-4.204-3.602a.562.562 0 0 1 .321-.988l5.518-.442a.563.563 0 0 0 .475-.345L11.48 3.5Z"
                         />
                       </svg>
-                    ))}
-                    <div className="text-sm">3 Reviews</div>
+                    ))} */}
+                    <div className="text-xs text-gray-600/40 mt-2">No Reviews</div>
                   </div>
                 </div>
               </div>
@@ -160,7 +209,7 @@ export default function SelectedCard({ card, onClose }: SelectedCardProps) {
                 )}
                 {card.productType && (
                   <div className="bg-green-300 px-3 py-1 text-xs font-medium rounded-sm w-fit text-blue-950">
-                    {card.productType}
+                    {resolveProductTypeName(card.productType, productTypes)}
                   </div>
                 )}
                 {card.category && (
@@ -169,6 +218,11 @@ export default function SelectedCard({ card, onClose }: SelectedCardProps) {
                   </div>
                 )}
               </div>
+              {card.description && (
+                <div className="text-sm h-full text-blue-900/70 mt-2 whitespace-pre-line max-h-40 overflow-y-auto pr-1">
+                  {card.description}
+                </div>
+              )}
             </div>
 
             <div className="flex items-end gap-2">
@@ -211,23 +265,6 @@ export default function SelectedCard({ card, onClose }: SelectedCardProps) {
               {adding ? "Adding..." : "Buy"}
             </button>
 
-            <div className="justify-center flex px-3 py-2 rounded-sm flex-col items-center bg-blue-950 text-white">
-              <svg
-                xmlns="http://www.w3.org/2000/svg"
-                fill="none"
-                viewBox="0 0 24 24"
-                strokeWidth="1.5"
-                stroke="currentColor"
-                className="size-5"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  d="M13.5 21v-7.5a.75.75 0 0 1 .75-.75h3a.75.75 0 0 1 .75.75V21m-4.5 0H2.36m11.14 0H18m0 0h3.64m-1.39 0V9.349M3.75 21V9.349m0 0a3.001 3.001 0 0 0 3.75-.615A2.993 2.993 0 0 0 9.75 9.75c.896 0 1.7-.393 2.25-1.016a2.993 2.993 0 0 0 2.25 1.016c.896 0 1.7-.393 2.25-1.015a3.001 3.001 0 0 0 3.75.614m-16.5 0a3.004 3.004 0 0 1-.621-4.72l1.189-1.19A1.5 1.5 0 0 1 5.378 3h13.243a1.5 1.5 0 0 1 1.06.44l1.19 1.189a3 3 0 0 1-.621 4.72M6.75 18h3.75a.75.75 0 0 0 .75-.75V13.5a.75.75 0 0 0-.75-.75H6.75a.75.75 0 0 0-.75.75v3.75c0 .414.336.75.75.75Z"
-                />
-              </svg>
-              <div className="text-[0.5rem] text-nowrap">Go to store</div>
-            </div>
           </div>
         </div>
       </motion.div>

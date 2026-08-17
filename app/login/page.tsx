@@ -79,8 +79,8 @@ export const registerUser = async ({
       email,
       contactNumber,
       role: "customer",
-      isApproved: false,
-      isDisabled: false,
+      isApproved: true,
+      disabled: false,
       isOnline: false,
       isVerified: false,
       createdAt: Date.now(),
@@ -230,19 +230,11 @@ export default function Page() {
         toast.error("This user is not authorized on this website.");
         return;
       }
-      if (profile?.isDisabled === true) {
+      if (profile?.deleted === true) {
         await signOut(auth);
         await syncSessionCookie(null);
         toast.error(
-          "Your account is rejected. Please contact support for assistance.",
-        );
-        return;
-      }
-      if (profile?.isApproved === false) {
-        await signOut(auth);
-        await syncSessionCookie(null);
-        toast.info(
-          "Your account is in verification. Please wait for approval.",
+          "This account has been deleted. Please contact support for assistance.",
         );
         return;
       }

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { motion } from "framer-motion";
-import { ref, remove, update } from "firebase/database";
+import { ref, update } from "firebase/database";
 import { sendPasswordResetEmail } from "firebase/auth";
 import { toast } from "react-toastify";
 import { auth, db } from "@/lib/firebase";
@@ -17,6 +17,7 @@ export type AccountDetails = {
   role?: string;
   isApproved?: boolean;
   disabled?: boolean;
+  deleted?: boolean;
 };
 
 const fieldClass =
@@ -101,8 +102,8 @@ export default function AccountDetailsModal({
   const handleDelete = async () => {
     setWorking(true);
     try {
-      await remove(ref(db, `users/${account.id}`));
-      toast.success("Account deleted.");
+      await update(ref(db, `users/${account.id}`), { deleted: true });
+      toast.success("Account deleted. It can be recovered from Accounts.");
       onClose();
     } catch (error) {
       console.warn(error);
@@ -135,7 +136,7 @@ export default function AccountDetailsModal({
         : confirmAction === "delete"
           ? {
               title: "Delete Account",
-              message: `Delete ${[account.firstName, account.lastName].filter(Boolean).join(" ") || "this account"}? This cannot be undone.`,
+              message: `Delete ${[account.firstName, account.lastName].filter(Boolean).join(" ") || "this account"}? This can be recovered later from the Accounts page.`,
               confirmLabel: "Delete",
               variant: "danger" as const,
               onConfirm: handleDelete,

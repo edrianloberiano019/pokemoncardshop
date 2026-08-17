@@ -8,7 +8,8 @@ import Sidebar, { SidebarFilters } from "@/components/Sidebar";
 import { db } from "@/lib/firebase";
 import { motion } from "framer-motion";
 import { onValue, ref } from "firebase/database";
-import { useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useMemo, useState } from "react";
 
 type ShopProduct = {
   id: string;
@@ -23,6 +24,7 @@ type ShopProduct = {
   compareAtPrice?: number | null;
   stockQuantity: number;
   imageUrl?: string;
+  images?: string[];
 };
 
 const emptyFilters: SidebarFilters = {
@@ -34,11 +36,18 @@ const emptyFilters: SidebarFilters = {
 
 const PAGE_SIZE = 24;
 
-export default function ShopPage() {
+function ShopPageContent() {
+  const searchParams = useSearchParams();
+  const initialBrand = searchParams.get("brand");
+  const initialFilters = useMemo<SidebarFilters>(
+    () => ({ ...emptyFilters, brands: initialBrand ? [initialBrand] : [] }),
+    [initialBrand],
+  );
+
   const [loading, setLoading] = useState(true);
   const [products, setProducts] = useState<ShopProduct[]>([]);
   const [hoverCard, setHoverCard] = useState("");
-  const [filters, setFilters] = useState<SidebarFilters>(emptyFilters);
+  const [filters, setFilters] = useState<SidebarFilters>(initialFilters);
   const [search, setSearch] = useState("");
   const [page, setPage] = useState(1);
   const [selectedProduct, setSelectedProduct] = useState<ShopProduct | null>(
@@ -117,7 +126,7 @@ export default function ShopPage() {
       )}
       <Navbar />
       <div className="flex flex-1 overflow-hidden">
-        <Sidebar onApply={handleApplyFilters} />
+        <Sidebar onApply={handleApplyFilters} initialFilters={initialFilters} />
         <main className="flex-1 relative w-full flex flex-col mb-4 text-black">
           <div className="px-6 pt-[2vh]">
             <div className="flex items-center gap-2 border border-gray-300 rounded-sm px-3 py-2 max-w-md">
@@ -176,8 +185,11 @@ export default function ShopPage() {
                         <div
                           className={` ${hoverCard === item.id ? "h-1/2" : "h-full"} transition-all bg-linear-to-t gap-4 from-blue-950 via-blue-950/20 items-end  to-transparent w-full px-4 py-2 flex absolute bottom-0 flex-row font-medium justify-between `}
                         >
-                          <div className="font-medium text-white">
-                            <div className="text-sm first-letter:uppercase " title={item.name}>
+                          <div className="font-medium text-white min-w-0 flex-1">
+                            <div
+                              className="text-sm first-letter:uppercase text-nowrap overflow-hidden text-ellipsis"
+                              title={item.name}
+                            >
                               {item.name}
                             </div>
                             <div className="text-xs">
@@ -186,7 +198,7 @@ export default function ShopPage() {
                           </div>
                           <div
                             onClick={() => setSelectedProduct(item)}
-                            className="cursor-pointer uppercase px-3 py-1 bg-green-700 transition-all rounded-full text-white text-[0.6rem] font-semibold"
+                            className="cursor-pointer uppercase px-3 py-1 bg-green-700 transition-all rounded-full text-white text-[0.6rem] font-semibold shrink-0"
                           >
                             buy
                           </div>
@@ -215,5 +227,13 @@ export default function ShopPage() {
         </main>
       </div>
     </div>
+  );
+}
+
+export default function ShopPage() {
+  return (
+    <Suspense fallback={<LoadingSkeleton />}>
+      <ShopPageContent />
+    </Suspense>
   );
 }

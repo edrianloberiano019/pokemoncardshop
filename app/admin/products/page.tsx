@@ -13,11 +13,12 @@ import EditProductModal, {
   type EditableProduct,
 } from "@/components/EditProductModal";
 import { db } from "@/lib/firebase";
-import { useProductTypes } from "@/lib/productTypes";
+import { resolveProductTypeName, useProductTypes } from "@/lib/productTypes";
 import { CARD_GRADES } from "@/lib/cardGrades";
 import { useBrands } from "@/lib/brands";
 import { toJpgUrl } from "@/lib/cloudinary";
 import { useAppSelector } from "@/store/hooks";
+import { motion } from "framer-motion";
 
 const fieldClass =
   "w-full border border-blue-900 rounded-sm px-3 py-2 text-sm bg-white text-blue-950 placeholder:text-blue-900/40 focus:outline-none focus:ring-1 focus:ring-blue-900";
@@ -231,7 +232,9 @@ export default function AdminProductsPage() {
       const list = data
         ? Object.values(data)
             .filter(
-              (business): business is { userId: string; businessName: string } =>
+              (
+                business,
+              ): business is { userId: string; businessName: string } =>
                 Boolean(business.userId && business.businessName),
             )
             .map((business) => ({
@@ -268,29 +271,30 @@ export default function AdminProductsPage() {
                   No products yet. Create one to see it here.
                 </div>
               ) : (
-                products.map((product) => (
-                  <div
+                products.map((product, index) => (
+                  <motion.div
+                    initial={{ y: 20, opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    transition={{delay: index * 0.1}}
                     key={product.id}
-                    className="h-28 flex gap-4 border p-4 bg-white border-blue-950 rounded-sm"
+                    className=" flex gap-4 items-center justify-center border p-4 bg-white border-blue-950 rounded-sm"
                   >
                     {product.imageUrl ? (
                       <img
                         src={product.imageUrl}
                         alt={product.name}
-                        className="h-full w-28 object-cover rounded-md"
+                        className="w-28 h-22 object-cover rounded-md"
                       />
                     ) : (
-                      <div className="h-full bg-gray-200 rounded-md w-28"></div>
+                      <div className="text-center text-xs text-gray-300 rounded-md w-28 items-center justify-center">
+                        no image
+                      </div>
                     )}
-                    <div className="flex justify-between w-full">
-                      <div className="flex flex-col justify-between">
-                        <div>
-                          <div>{product.name}</div>
-                          <div className="font-normal text-xs">
-                            {vendorNames[product.vendorId] ??
-                              (product.vendorId === user.uid
-                                ? "Admin"
-                                : "Unknown Seller")}
+                    <div className="flex h-full justify-between w-full">
+                      <div className="flex flex-col h-full relative justify-between">
+                        <div className="flex flex-col  text-ellipsis ">
+                          <div className="first-letter:uppercase text-xs">
+                            {product.name}
                           </div>
                           <div className="font-normal text-xs">
                             Stock: {product.stockQuantity}
@@ -298,7 +302,10 @@ export default function AdminProductsPage() {
                         </div>
                         <div className="flex gap-2">
                           <div className="bg-green-300 px-3 py-1 text-xs font-normal rounded-sm w-fit">
-                            {product.productType}
+                            {resolveProductTypeName(
+                              product.productType,
+                              productTypes,
+                            )}
                           </div>
                           {product.grade && (
                             <div className="bg-blue-200 px-3 py-1 text-xs font-normal rounded-sm w-fit">
@@ -331,7 +338,7 @@ export default function AdminProductsPage() {
                         </div>
                       </div>
                     </div>
-                  </div>
+                  </motion.div>
                 ))
               )}
             </div>
@@ -345,7 +352,11 @@ export default function AdminProductsPage() {
                 />
                 <CldUploadWidget
                   uploadPreset="vendor_products"
-                  options={{ maxFiles: 5, multiple: true, sources: ["local", "camera"] }}
+                  options={{
+                    maxFiles: 5,
+                    multiple: true,
+                    sources: ["local", "camera"],
+                  }}
                   onSuccess={(result: CloudinaryUploadWidgetResults) => {
                     if (
                       typeof result.info === "object" &&
@@ -459,9 +470,9 @@ export default function AdminProductsPage() {
                     <button
                       key={type.id}
                       type="button"
-                      onClick={() => setProductType(type.name)}
+                      onClick={() => setProductType(type.id)}
                       className={`px-3 py-1.5 text-sm rounded-sm border ${
-                        productType === type.name
+                        productType === type.id
                           ? "border-blue-900 bg-blue-50 text-blue-950 font-semibold"
                           : "border-blue-900/30 text-blue-900/70 hover:border-blue-900"
                       }`}

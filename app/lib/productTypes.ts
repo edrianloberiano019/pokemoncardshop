@@ -7,6 +7,14 @@ export type ProductType = {
   name: string;
 };
 
+export function resolveProductTypeName(
+  value: string | null | undefined,
+  productTypes: ProductType[],
+): string {
+  if (!value) return "";
+  return productTypes.find((type) => type.id === value)?.name ?? value;
+}
+
 export function useProductTypes() {
   const [productTypes, setProductTypes] = useState<ProductType[]>([]);
 

@@ -14,7 +14,7 @@ import EditProductModal, {
   type EditableProduct,
 } from "@/components/EditProductModal";
 import { db } from "@/lib/firebase";
-import { useProductTypes } from "@/lib/productTypes";
+import { resolveProductTypeName, useProductTypes } from "@/lib/productTypes";
 import { CARD_GRADES } from "@/lib/cardGrades";
 import { useBrands } from "@/lib/brands";
 import { toJpgUrl } from "@/lib/cloudinary";
@@ -257,7 +257,10 @@ export default function VendorProductsPage() {
                         </div>
                         <div className="flex gap-2">
                           <div className="bg-green-300 px-3 py-1 text-xs font-normal rounded-sm w-fit">
-                            {product.productType}
+                            {resolveProductTypeName(
+                              product.productType,
+                              productTypes,
+                            )}
                           </div>
                           {product.grade && (
                             <div className="bg-blue-200 px-3 py-1 text-xs font-normal rounded-sm w-fit">
@@ -392,9 +395,9 @@ export default function VendorProductsPage() {
                     <button
                       key={type.id}
                       type="button"
-                      onClick={() => setProductType(type.name)}
+                      onClick={() => setProductType(type.id)}
                       className={`px-3 py-1.5 text-sm rounded-sm border ${
-                        productType === type.name
+                        productType === type.id
                           ? "border-blue-900 bg-blue-50 text-blue-950 font-semibold"
                           : "border-blue-900/30 text-blue-900/70 hover:border-blue-900"
                       }`}

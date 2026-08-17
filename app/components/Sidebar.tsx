@@ -64,8 +64,8 @@ const ProductTypeFilter = ({ selected, onToggle }: ProductTypeFilterProps) => {
           <input
             className="w-4 h-4"
             type="checkbox"
-            checked={selected.includes(type.name)}
-            onChange={() => onToggle(type.name)}
+            checked={selected.includes(type.id)}
+            onChange={() => onToggle(type.id)}
           />
           <div className="text-xs">{type.name}</div>
         </div>
@@ -76,13 +76,18 @@ const ProductTypeFilter = ({ selected, onToggle }: ProductTypeFilterProps) => {
 
 type SidebarProps = {
   onApply: (filters: SidebarFilters) => void;
+  initialFilters?: SidebarFilters;
 };
 
-export default function Sidebar({ onApply }: SidebarProps) {
-  const [brands, setBrands] = useState<string[]>([]);
-  const [productTypes, setProductTypes] = useState<string[]>([]);
-  const [minPrice, setMinPrice] = useState("");
-  const [maxPrice, setMaxPrice] = useState("");
+export default function Sidebar({ onApply, initialFilters }: SidebarProps) {
+  const [brands, setBrands] = useState<string[]>(
+    initialFilters?.brands ?? [],
+  );
+  const [productTypes, setProductTypes] = useState<string[]>(
+    initialFilters?.productTypes ?? [],
+  );
+  const [minPrice, setMinPrice] = useState(initialFilters?.minPrice ?? "");
+  const [maxPrice, setMaxPrice] = useState(initialFilters?.maxPrice ?? "");
 
   const handleApply = () => {
     onApply({ brands, productTypes, minPrice, maxPrice });

@@ -5,6 +5,7 @@ export interface CartItem {
   name: string;
   price: number;
   image?: string;
+  vendorId?: string;
   quantity: number;
 }
 
@@ -46,10 +47,13 @@ const cartSlice = createSlice({
     clearCart(state) {
       state.items = [];
     },
+    hydrate(state, action: PayloadAction<CartItem[]>) {
+      state.items = action.payload;
+    },
   },
 });
 
-export const { addItem, removeItem, updateQuantity, clearCart } =
+export const { addItem, removeItem, updateQuantity, clearCart, hydrate } =
   cartSlice.actions;
 
 export const selectCartItems = (state: { cart: CartState }) => state.cart.items;

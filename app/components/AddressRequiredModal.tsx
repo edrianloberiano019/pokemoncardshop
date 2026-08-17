@@ -146,12 +146,11 @@ export default function AddressRequiredModal({
             Delivery Address Required
           </div>
           <div className="text-xs text-blue-900/60 mt-1">
-            Add a delivery address before checking out. Click or drag the pin
-            to your exact location.
+            Add a delivery address before checking out.
           </div>
         </div>
 
-        <AddressMap lat={lat} lng={lng} onChange={handlePinMoved} />
+        {/* <AddressMap lat={lat} lng={lng} onChange={handlePinMoved} /> */}
 
         <div>
           <FieldLabel>Street Address</FieldLabel>

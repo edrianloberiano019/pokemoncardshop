@@ -68,7 +68,6 @@ export default function EditProductModal({
   const [grade, setGrade] = useState(product.grade ?? "");
   const [productType, setProductType] = useState(product.productType);
   const [brand, setBrand] = useState(product.brand ?? "");
-  const [setExpansion, setSetExpansion] = useState(product.setExpansion ?? "");
   const [description, setDescription] = useState(product.description);
   const [price, setPrice] = useState(String(product.price));
   const [compareAtPrice, setCompareAtPrice] = useState(
@@ -131,7 +130,6 @@ export default function EditProductModal({
         imageUrl,
         productType,
         brand: brand || null,
-        setExpansion: setExpansion || null,
         description: trimmedDescription,
         price: priceValue,
         compareAtPrice: compareAtPrice ? parseFloat(compareAtPrice) : null,
@@ -277,9 +275,9 @@ export default function EditProductModal({
                   <button
                     key={type.id}
                     type="button"
-                    onClick={() => setProductType(type.name)}
+                    onClick={() => setProductType(type.id)}
                     className={`px-1.5 py-1 text-xs rounded-sm border ${
-                      productType === type.name
+                      productType === type.id
                         ? "border-blue-900 bg-blue-50 text-blue-950 font-semibold"
                         : "border-blue-900/30 text-blue-900/70 hover:border-blue-900"
                     }`}
@@ -288,16 +286,6 @@ export default function EditProductModal({
                   </button>
                 ))}
               </div>
-            </div>
-
-            <div>
-              <FieldLabel>Set / Expansion</FieldLabel>
-              <input
-                placeholder="Set or expansion"
-                value={setExpansion}
-                onChange={(e) => setSetExpansion(e.target.value)}
-                className={fieldClass}
-              />
             </div>
 
             <div>

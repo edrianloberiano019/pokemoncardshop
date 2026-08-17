@@ -5,6 +5,7 @@ import { Provider } from "react-redux";
 import { makeStore, type AppStore } from "./index";
 import AuthListener from "./AuthListener";
 import AdminRouteGuard from "./AdminRouteGuard";
+import GuestCartListener from "./GuestCartListener";
 
 export default function StoreProvider({
   children,
@@ -20,6 +21,7 @@ export default function StoreProvider({
     <Provider store={storeRef.current}>
       <AuthListener />
       <AdminRouteGuard />
+      <GuestCartListener />
       {children}
     </Provider>
   );
